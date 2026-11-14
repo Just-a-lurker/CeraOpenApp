@@ -24,7 +24,8 @@ CeraLib, and shows a control page in your browser at
   or cancel one (mode, time, reminder and sound).
 - **Cups**: today, this week (Sunday to Saturday), this month and this year,
   plus charts per day, per date and per month. Step back with ‹ ›, and click
-  a month in the year chart to open it.
+  a month in the year chart to open it. Cups and the schedule are read again
+  when a run ends.
 - **Developer**: a collapsed frame log showing every Bluetooth frame.
 - Light and dark mode; works at phone width.
 
@@ -37,9 +38,10 @@ python -m ceraopen
 
 Options: `--port 8765` (default) and `--no-browser`. Close the HappyGo app
 first: the machine accepts one connection at a time. Connecting takes about
-10 seconds.
+10 seconds. About 1 connection in 6 fails on the machine's side; the app then
+retries by itself (up to four attempts), which can take up to a minute.
 
-The app pins a tagged CeraLib release (`v0.4.0`) and aiohttp 3.x, so new
+The app pins a tagged CeraLib release (`v0.4.1`) and aiohttp 3.x, so new
 library or aiohttp major versions only arrive through a deliberate update.
 
 ## Safety and warranty
@@ -74,7 +76,9 @@ The app only uses CeraLib's public API (`cera.discover`,
 ### Local API
 
 Other tools on the same PC can drive the app through it. Write calls
-return `403` while controls are locked.
+return `403` while controls are locked, malformed requests `400`, and
+machine or Bluetooth errors `502`. Frames on the WebSocket carry a `seq`
+number that only goes up while the app runs.
 
 | Method and path | Body | Does |
 |---|---|---|

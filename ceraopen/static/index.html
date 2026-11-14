@@ -224,7 +224,7 @@
 <main>
   <section class="card connect">
     <h1>Connect your machine</h1>
-    <p class="hint">Close the HappyGo app first: the machine accepts one connection at a time. Connecting takes about 10 seconds.</p>
+    <p class="hint">Close the HappyGo app first: the machine accepts one connection at a time. Connecting takes about 10 seconds, sometimes up to a minute when the machine needs a retry.</p>
     <button id="scan" class="btn primary">Scan for machines</button>
     <ul id="devices" class="devices"></ul>
   </section>
@@ -356,7 +356,10 @@ function log(cls, text) {
   el.scrollTop = el.scrollHeight;
 }
 function isHeartbeat(hex) { return /^7e 00 0b .. 00 /.test(hex); }
+let lastSeq = 0;  // newest frame already logged: the backlog is replayed on every reconnect
 function logFrame(f) {
+  if (f.seq <= lastSeq) return;
+  lastSeq = f.seq;
   if ($("hideHb").checked && isHeartbeat(f.hex)) return;
   log(f.dir === "TX" ? "tx" : "rx", `${f.dir}  ${f.hex}`);
 }
@@ -681,7 +684,12 @@ function connectWs() {
     const e = JSON.parse(m.data);
     if (e.type === "state") render(e.state);
     else if (e.type === "frame") logFrame(e);
-    else if (e.type === "frames") e.frames.forEach(logFrame);
+    else if (e.type === "frames") {
+      // Numbers that went backwards mean the app was restarted: start over.
+      const newest = e.frames.length ? e.frames[e.frames.length - 1].seq : 0;
+      if (newest < lastSeq) lastSeq = 0;
+      e.frames.forEach(logFrame);
+    }
     else if (e.type === "log") { log(e.level === "warn" ? "warnl" : "", e.msg); if (e.level === "warn") toast(e.msg); }
   };
   ws.onclose = () => {

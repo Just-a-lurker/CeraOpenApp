@@ -23,9 +23,16 @@ def _json_error(exc: Exception) -> web.Response:
 def _action(fn: Callable[[MachineService, Any], Awaitable[Any]]):
     async def handler(request: web.Request) -> web.Response:
         svc: MachineService = request.app["svc"]
-        body = await request.json() if request.can_read_body else {}
+        try:
+            body = await request.json() if request.can_read_body else {}
+            if not isinstance(body, dict):
+                raise ValueError("the request body must be a JSON object")
+        except ValueError as exc:  # includes malformed JSON
+            return _json_error(exc)
         try:
             result = await fn(svc, body)
+        except TypeError as exc:  # a field of the wrong type, e.g. {"celsius": null}
+            return _json_error(ValueError(str(exc)))
         except (CeraError, CommandRejected, ControlLocked, ValueError, KeyError, OSError) as exc:
             return _json_error(exc)
         return web.json_response({"ok": True, "result": result, "state": svc.snapshot()})
@@ -91,6 +98,8 @@ def build_app(svc: MachineService) -> web.Application:
         try:
             data = svc.stats_period(request.query.get("period", "week"),
                                     int(request.query.get("offset", "0")))
+        except OverflowError:  # an offset further back than dates go
+            return _json_error(ValueError("offset out of range"))
         except (CeraError, ValueError) as exc:
             return _json_error(exc)
         return web.json_response({"ok": True, "result": data})
