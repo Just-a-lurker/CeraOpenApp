@@ -36,6 +36,9 @@ class MachineService:
         self.stats = None  # cera.messages.Stats, read-only cup history
         self.reservation = None  # cera.messages.Reservation stored on the machine
         self.stats_date: Optional[_dt.date] = None
+        self._was_running = False
+        self._reread: Optional["asyncio.Future[None]"] = None
+        self._frame_seq = 0
 
     # -- events ----------------------------------------------------------
     def subscribe(self, fn: Listener) -> Callable[[], None]:
@@ -51,7 +54,8 @@ class MachineService:
                 pass
 
     def _frame(self, direction: str, raw: bytes) -> None:
-        entry = {"dir": direction, "hex": raw.hex(" "), "t": time.time()}
+        self._frame_seq += 1  # lets a reconnecting page skip frames it already has
+        entry = {"dir": direction, "hex": raw.hex(" "), "t": time.time(), "seq": self._frame_seq}
         self.frames.append(entry)
         self._emit("frame", **entry)
 
@@ -114,10 +118,13 @@ class MachineService:
                 await self._client.disconnect()
             self.address = address
             self.connecting = True
+            # Nothing read from a previous machine may be shown for this one.
+            self.stats = self.stats_date = self.reservation = None
+            self._was_running = False
             self._changed()
             client = CeraClient(
                 address,
-                on_status=lambda _s: self._changed(),
+                on_status=self._on_status,
                 on_frame=self._frame,
                 on_disconnect=self._on_lost,
             )
@@ -130,7 +137,29 @@ class MachineService:
                 self.connecting = False
                 self._changed()
 
+    def _on_status(self, status) -> None:
+        running = status.state != State.IDLE
+        if self._was_running and not running:
+            # A run just ended: the cup count went up, and a reservation that
+            # ran has switched itself off. Read both again.
+            self._reread = asyncio.ensure_future(self._reread_after_run())
+        self._was_running = running
+        self._changed()
+
+    REREAD_DELAY = 1.0  # seconds after a run ends before the counts are read again
+
+    async def _reread_after_run(self) -> None:
+        await asyncio.sleep(self.REREAD_DELAY)
+        async with self._lock:
+            client = self._client
+            if not (client and client.is_connected):
+                return
+            await self._read_stats(client)
+            await self._read_reservation(client)
+        self._changed()
+
     def _on_lost(self) -> None:
+        self._was_running = False
         self.control_enabled = False
         self._emit("log", level="warn", msg="machine disconnected")
         self._changed()

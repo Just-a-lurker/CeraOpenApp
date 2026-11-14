@@ -188,6 +188,78 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await self.post("reservation", body))[0], 400, body)
         self.assertEqual(fake.calls, [])  # rejected before anything reached the machine
 
+    async def test_malformed_requests_are_400(self):
+        self.svc._client = FakeClient()
+        await self.post("control", {"enabled": True})
+        r = await self.client.post("/api/target", data="{", headers={"Content-Type": "application/json"})
+        self.assertEqual(r.status, 400)
+        self.assertFalse((await r.json())["ok"])
+        self.assertEqual((await self.post("target", [1]))[0], 400)
+        self.assertEqual((await self.post("target", {"celsius": None}))[0], 400)
+        self.assertEqual((await self.post("settings", {"flow": [1]}))[0], 400)
+        self.assertEqual(self.svc._client.calls, [])
+        from cera.messages import Stats
+        self.svc.stats = Stats(b"9", (1, 2, 3))
+        import datetime as dt
+        self.svc.stats_date = dt.date(2026, 11, 14)
+        for query in ("period=week&offset=-99999999999", "period=month&offset=-99999999999", "period=week&offset=x"):
+            r = await self.client.get("/api/stats?" + query)
+            self.assertEqual(r.status, 400, query)
+
+    async def test_cups_and_schedule_are_reread_when_a_run_ends(self):
+        import asyncio
+        from cera.messages import Reservation, Stats
+        fake = FakeClient()
+        reads = []
+
+        async def get_stats():
+            reads.append("stats")
+            return Stats(b"9", (len(reads), 0, 0))
+
+        fake.get_stats = get_stats
+        fake.reservation = Reservation(2, 21, 10, False, 0, True)
+        self.svc._client = fake
+        idle = Status.parse(bytes.fromhex("013c031e0000"))
+        extracting = Status.parse(bytes.fromhex("013c031e0300"))
+        self.svc._on_status(idle)
+        self.svc._on_status(extracting)
+        self.svc._on_status(extracting)
+        self.assertIsNone(self.svc._reread)                # still running: nothing read
+        fake.reservation = Reservation(2, 21, 10, False, 0, False)  # the machine switched it off
+        self.svc.REREAD_DELAY = 0.0
+        self.svc._on_status(idle)
+        await asyncio.wait_for(self.svc._reread, 2)
+        self.assertEqual(reads, ["stats"])
+        self.assertEqual(self.svc.stats.today, 1)
+        self.assertFalse(self.svc.reservation.enabled)
+        self.svc._on_status(idle)                           # idle to idle: no second read
+        await asyncio.sleep(0.05)
+        self.assertEqual(reads, ["stats"])
+
+    async def test_frames_are_numbered(self):
+        self.svc._frame("TX", b"\x7f")
+        self.svc._frame("RX", b"\x7e")
+        self.assertEqual([f["seq"] for f in self.svc.frames], [1, 2])
+
+    async def test_connecting_forgets_the_previous_machine(self):
+        from unittest import mock
+        from cera.client import CeraError
+        from cera.messages import Stats
+        self.svc.stats = Stats(b"9", (7,))
+
+        class Failing:
+            def __init__(self, *a, **kw):
+                pass
+
+            async def connect(self):
+                raise CeraError("no reply")
+
+        with mock.patch("ceraopen.service.CeraClient", Failing):
+            status, _ = await self.post("connect", {"address": "AA"})
+        self.assertEqual(status, 502)
+        self.assertIsNone(self.svc.stats)
+        self.assertFalse(self.svc.connecting)
+
     async def test_disconnect_turns_control_off(self):
         self.svc._client = FakeClient()
         await self.post("control", {"enabled": True})
