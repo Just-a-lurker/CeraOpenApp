@@ -24,6 +24,8 @@ class FakeClient:
         self.info = None
         self.target_c = 95.0
         self.calls = []
+        from cera.messages import Reservation
+        self.reservation = Reservation(2, 21, 10, False, 0, False)
 
     async def set_target_temp_c(self, c):
         self.calls.append(("target", c))
@@ -36,6 +38,22 @@ class FakeClient:
 
     async def start(self, mode):
         self.calls.append(("start", mode.name))
+
+    async def get_reservation(self):
+        return self.reservation
+
+    async def set_reservation(self, mode, hour, minute, *, alarm=None, beep=None):
+        from cera.messages import Reservation
+        self.calls.append(("set_reservation", mode.name, hour, minute, alarm, beep.name))
+        self.reservation = Reservation(int(mode), hour, minute, bool(alarm), int(beep), True)
+        return self.reservation
+
+    async def cancel_reservation(self):
+        from cera.messages import Reservation
+        r = self.reservation
+        self.calls.append(("cancel_reservation",))
+        self.reservation = Reservation(r.mode, r.hour, r.minute, r.alarm, r.beep, False)
+        return self.reservation
 
     async def stop(self):
         self.calls.append(("stop",))
@@ -141,6 +159,34 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(j["bars"][11]["future"])
         r = await self.client.get("/api/stats?period=decade")
         self.assertEqual(r.status, 400)
+
+    async def test_schedule_needs_control_but_cancel_does_not(self):
+        fake = FakeClient()
+        self.svc._client = fake
+        body = {"mode": "EXTRACT", "time": "19:30", "alarm": True, "beep": "BI_BI"}
+        self.assertEqual((await self.post("reservation", body))[0], 403)
+        self.assertEqual(fake.calls, [])
+        await self.post("control", {"enabled": True})
+        status, j = await self.post("reservation", body)
+        self.assertEqual(status, 200)
+        self.assertEqual(fake.calls[-1], ("set_reservation", "EXTRACT", 19, 30, True, "BI_BI"))
+        r = j["state"]["reservation"]
+        self.assertTrue(r["enabled"])
+        self.assertEqual((r["mode"], r["time"], r["alarm"], r["beep"]), ("EXTRACT", "19:30", True, "BI_BI"))
+        self.assertIsNotNone(r["next_run"])
+        await self.post("control", {"enabled": False})
+        status, j = await self.post("reservation/cancel")
+        self.assertEqual(status, 200)
+        self.assertFalse(j["state"]["reservation"]["enabled"])
+
+    async def test_schedule_rejects_bad_input(self):
+        self.svc._client = FakeClient()
+        await self.post("control", {"enabled": True})
+        fake = self.svc._client
+        for body in [{"mode": "EXTRACT", "time": "7:5"}, {"mode": "EXTRACT", "time": "24:00"},
+                     {"mode": "BOIL", "time": "07:00"}, {"mode": "EXTRACT", "time": "07:00", "beep": "LOUD"}]:
+            self.assertEqual((await self.post("reservation", body))[0], 400, body)
+        self.assertEqual(fake.calls, [])  # rejected before anything reached the machine
 
     async def test_disconnect_turns_control_off(self):
         self.svc._client = FakeClient()

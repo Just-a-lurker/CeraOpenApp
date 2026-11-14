@@ -111,4 +111,13 @@ def build_app(svc: MachineService) -> web.Application:
     app.router.add_post("/api/settings", _action(settings))
     app.router.add_post("/api/start", _action(lambda s, b: s.start(str(b["mode"]))))
     app.router.add_post("/api/stop", _action(lambda s, b: s.stop()))
+
+    async def reservation(s, b):
+        time_hhmm = str(b["time"])
+        if len(time_hhmm) != 5 or time_hhmm[2] != ":":
+            raise ValueError("time must be HH:MM")
+        await s.set_reservation(str(b["mode"]), time_hhmm, bool(b.get("alarm")), str(b.get("beep", "DING_DONG")))
+
+    app.router.add_post("/api/reservation", _action(reservation))
+    app.router.add_post("/api/reservation/cancel", _action(lambda s, b: s.cancel_reservation()))
     return app

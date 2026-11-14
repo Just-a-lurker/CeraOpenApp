@@ -14,7 +14,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 from cera import BrewMode, discover
 from cera.client import CeraClient, CeraError, CommandRejected
-from cera.messages import FLOW_DEFAULT, FLOW_MAX, FLOW_MIN, State
+from cera.messages import FLOW_DEFAULT, FLOW_MAX, FLOW_MIN, Beep, ReservationMode, State
 
 Listener = Callable[[Dict[str, Any]], None]
 
@@ -34,6 +34,7 @@ class MachineService:
         # Writes are refused until a user explicitly turns control on.
         self.control_enabled = False
         self.stats = None  # cera.messages.Stats, read-only cup history
+        self.reservation = None  # cera.messages.Reservation stored on the machine
         self.stats_date: Optional[_dt.date] = None
 
     # -- events ----------------------------------------------------------
@@ -84,6 +85,7 @@ class MachineService:
             "target_c": c.target_c if (c and connected) else None,
             "flow_range": {"min": FLOW_MIN, "max": FLOW_MAX, "default": FLOW_DEFAULT},
             "stats": self._stats_view() if connected else None,
+            "reservation": self._reservation_view() if connected else None,
             "settings": None if settings is None else {
                 "flow": settings.flow,
                 "flow_name": {FLOW_MIN: "min", FLOW_DEFAULT: "normal", FLOW_MAX: "max"}.get(settings.flow, str(settings.flow)),
@@ -123,6 +125,7 @@ class MachineService:
                 await client.connect()
                 self._client = client
                 await self._read_stats(client)
+                await self._read_reservation(client)
             finally:
                 self.connecting = False
                 self._changed()
@@ -156,6 +159,53 @@ class MachineService:
             client = self._need(write=False)
             await client.get_settings()
             await self._read_stats(client)
+            await self._read_reservation(client)
+        self._changed()
+
+    async def _read_reservation(self, client) -> None:
+        """Read the stored reservation; a failure never breaks the connection."""
+        try:
+            self.reservation = await client.get_reservation()
+        except Exception as exc:  # noqa: BLE001
+            self._emit("log", level="warn", msg=f"could not read the reservation: {exc}")
+
+    def _reservation_view(self):
+        r = self.reservation
+        if r is None:
+            return None
+        try:
+            mode = ReservationMode(r.mode).name
+        except ValueError:
+            mode = f"UNKNOWN_{r.mode}"
+        try:
+            beep = Beep(r.beep).name
+        except ValueError:
+            beep = f"UNKNOWN_{r.beep}"
+        next_run = r.next_run(_dt.datetime.now()) if r.enabled else None
+        return {
+            "enabled": r.enabled, "mode": mode, "time": r.time,
+            "alarm": r.alarm, "beep": beep,
+            "next_run": next_run.isoformat(timespec="minutes") if next_run else None,
+        }
+
+    async def set_reservation(self, mode: str, time_hhmm: str, alarm: bool, beep: str) -> None:
+        """Schedule a start the machine runs BY ITSELF (needs control on)."""
+        hour, minute = (int(x) for x in time_hhmm.split(":"))
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError("time must be 00:00-23:59")
+        mode_value, beep_value = ReservationMode[mode], Beep[beep]  # KeyError -> 400
+        async with self._lock:
+            client = self._need(write=True)
+            self.reservation = await client.set_reservation(
+                mode_value, hour, minute, alarm=bool(alarm), beep=beep_value)
+        self._emit("log", level="info", msg=f"reservation set: {mode} at {hour:02d}:{minute:02d}")
+        self._changed()
+
+    async def cancel_reservation(self) -> None:
+        # Like STOP, cancelling only removes risk, so it is allowed with control off.
+        async with self._lock:
+            self.reservation = await self._need(write=False).cancel_reservation()
+        self._emit("log", level="info", msg="reservation cancelled")
         self._changed()
 
     async def _read_stats(self, client) -> None:
