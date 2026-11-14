@@ -74,6 +74,7 @@
   #chart .bar { fill: var(--bar); }
   #chart .nodata { fill: var(--muted); fill-opacity: .5; }
   #chart .hit { fill: transparent; outline: none; }
+  #chart .hit.drill { cursor: pointer; }
   #chart .hit.on, #chart .hit:focus-visible { fill: var(--line); fill-opacity: .35; }
   #tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px;
          padding: 6px 10px; font-size: 12px; line-height: 1.35; white-space: nowrap; display: none; z-index: 1; }
@@ -242,12 +243,13 @@ function render(s) {
   $("cMonth").textContent = cups ? cups.month : "–";
   $("cYear").textContent = cups ? cups.year : "–";
   if (cups) $("cHint").textContent = `As of ${cups.as_of}. Week runs Sunday to Saturday, like the vendor app. The machine stores ${cups.days_stored} days; "Re-read settings" reloads.`;
+  statsAsOf = cups ? cups.as_of : null;
   const key = cups ? `${cups.as_of}:${cups.year}:${cups.today}` : "";
   if (key !== statsKey) { statsKey = key; loadPeriod(); }
 }
 
 // ---- cups chart -------------------------------------------------------------
-let statsKey = "", period = "week", offset = 0, lastData = null;
+let statsKey = "", statsAsOf = null, period = "week", offset = 0, lastData = null;
 const SVGNS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs, parent) {
   const el = document.createElementNS(SVGNS, tag);
@@ -264,11 +266,19 @@ async function loadPeriod() {
   } catch (e) { lastData = null; }
   drawChart();
 }
-document.querySelectorAll("[data-period]").forEach((b) => (b.onclick = () => {
-  period = b.dataset.period; offset = 0;
-  document.querySelectorAll("[data-period]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+function setPeriod(p, off) {
+  period = p; offset = Math.min(0, off);
+  document.querySelectorAll("[data-period]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.period === p)));
   loadPeriod();
-}));
+}
+document.querySelectorAll("[data-period]").forEach((b) => (b.onclick = () => setPeriod(b.dataset.period, 0)));
+// Year view: open the clicked month (offset counted in months from the stats date).
+function openMonth(bar) {
+  if (!statsAsOf) return;
+  const [ay, am] = statsAsOf.split("-").map(Number);
+  const [by, bm] = bar.start.split("-").map(Number);
+  setPeriod("month", (by * 12 + bm) - (ay * 12 + am));
+}
 $("prevP").onclick = () => { offset -= 1; loadPeriod(); };
 $("nextP").onclick = () => { if (offset < 0) { offset += 1; loadPeriod(); } };
 window.addEventListener("resize", () => drawChart());
@@ -293,7 +303,9 @@ function showTip(bar, x, y) {
   const tip = $("tip"); tip.textContent = "";
   const v = document.createElement("b"); v.textContent = describe(bar);
   const l = document.createElement("div"); l.textContent = bar.name;
-  tip.append(v, l); tip.style.display = "block";
+  tip.append(v, l);
+  if (drillable(bar)) { const h = document.createElement("div"); h.textContent = "Click for daily details"; tip.append(h); }
+  tip.style.display = "block";
   const width = tip.parentElement.clientWidth;
   tip.style.left = Math.max(0, Math.min(x - tip.offsetWidth / 2, width - tip.offsetWidth)) + "px";
   tip.style.top = Math.max(0, y - tip.offsetHeight - 8) + "px";
@@ -345,13 +357,23 @@ function drawChart() {
       const lab = d.period === "year" && band < 28 ? bar.label[0] : bar.label;
       svgEl("text", { class: "xl", x: cx, y: H - 6, "text-anchor": "middle" }, svg).textContent = lab;
     }
-    const hit = svgEl("rect", { class: "hit", x: m.l + band * i, y: m.t - 14, width: band, height: ph + 14,
-                                tabindex: 0, role: "img", "aria-label": `${bar.name}: ${describe(bar)}` }, svg);
+    const drill = drillable(bar);
+    const hit = svgEl("rect", { class: "hit" + (drill ? " drill" : ""), x: m.l + band * i, y: m.t - 14, width: band, height: ph + 14,
+                                tabindex: 0, role: drill ? "button" : "img",
+                                "aria-label": `${bar.name}: ${describe(bar)}${drill ? ". Show daily details" : ""}` }, svg);
     const on = () => { hideTip(); hit.classList.add("on"); showTip(bar, cx, Math.min(y(bar.cups || 0), base)); };
     hit.addEventListener("pointerenter", on); hit.addEventListener("focus", on);
     hit.addEventListener("pointerleave", hideTip); hit.addEventListener("blur", hideTip);
+    if (drill) {
+      hit.addEventListener("click", () => openMonth(bar));
+      hit.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openMonth(bar); }
+      });
+    }
   });
 }
+// Year bars open their month, except months that have not started yet.
+function drillable(bar) { return lastData && lastData.period === "year" && !bar.future; }
 const EDITABLE = ["tgt", "flow", "presoak", "standstill", "ext"];
 function setIfClean(id, value) {
   const el = $(id);
