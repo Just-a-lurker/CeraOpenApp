@@ -39,7 +39,12 @@ python -m ceraopen
 Options: `--port 8765` (default) and `--no-browser`. Close the HappyGo app
 first: the machine accepts one connection at a time. Connecting takes about
 10 seconds. About 1 connection in 6 fails on the machine's side; the app then
-retries by itself (up to four attempts), which can take up to a minute.
+retries by itself (up to four attempts, each a new connection, pausing 2 s,
+4 s, then 6 s between them), which can take up to a minute.
+
+If the connection drops later, the app does not reconnect by itself: it
+shows the connect screen again and locks the controls, and you connect again
+from there.
 
 The app pins a tagged CeraLib release (`v0.4.1`) and aiohttp 3.x, so new
 library or aiohttp major versions only arrive through a deliberate update.
