@@ -86,6 +86,16 @@ def build_app(svc: MachineService) -> web.Application:
 
     app.router.add_post("/api/control", _action(set_control))
     app.router.add_post("/api/refresh", _action(lambda s, b: s.refresh()))
+
+    async def stats(request: web.Request) -> web.Response:
+        try:
+            data = svc.stats_period(request.query.get("period", "week"),
+                                    int(request.query.get("offset", "0")))
+        except (CeraError, ValueError) as exc:
+            return _json_error(exc)
+        return web.json_response({"ok": True, "result": data})
+
+    app.router.add_get("/api/stats", stats)
     app.router.add_post("/api/target", _action(lambda s, b: s.set_target_c(float(b["celsius"]))))
 
     async def settings(s, b):

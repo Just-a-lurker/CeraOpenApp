@@ -8,12 +8,14 @@
   :root {
     --bg: #f6f5f3; --card: #ffffff; --text: #1d1b19; --muted: #6b6560; --line: #e3dfda;
     --accent: #7a4a2a; --accent-text: #ffffff; --ok: #2f7d4f; --warn: #a86b00; --bad: #b3261e;
+    --bar: #a85a2a; /* chart bars: validated on #ffffff (lightness, chroma, contrast) */
     --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #161412; --card: #201d1a; --text: #ece7e2; --muted: #a39b93; --line: #34302c;
       --accent: #c98a5a; --accent-text: #1a1310; --ok: #5cc88a; --warn: #e0a640; --bad: #f2766c;
+      --bar: #c2702f; /* validated on #201d1a */
     }
   }
   * { box-sizing: border-box; }
@@ -57,6 +59,28 @@
   .slider .val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
   .slider .ends { grid-column: 1; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   input.dirty, select.dirty { border-color: var(--warn); }
+  .stats.four { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 6px 14px; background: transparent; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+  .chartbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .chartbar .title { flex: 1; min-width: 140px; font-weight: 600; }
+  .chartbar .total { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chartwrap { position: relative; }
+  #chart { display: block; width: 100%; height: 220px; }
+  #chart .grid { stroke: var(--line); stroke-width: 1; }
+  #chart .tick, #chart .xl { fill: var(--muted); font-size: 11px; }
+  #chart .cap { fill: var(--text); font-size: 11px; font-weight: 600; }
+  #chart .bar { fill: var(--bar); }
+  #chart .nodata { fill: var(--muted); fill-opacity: .5; }
+  #chart .hit { fill: transparent; outline: none; }
+  #chart .hit.on, #chart .hit:focus-visible { fill: var(--line); fill-opacity: .35; }
+  #tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px;
+         padding: 6px 10px; font-size: 12px; line-height: 1.35; white-space: nowrap; display: none; z-index: 1; }
+  #tip b { font-size: 14px; }
+  details.table summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 6px; }
+  details.table table { border-collapse: collapse; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  details.table td, details.table th { padding: 3px 14px 3px 0; text-align: left; border-bottom: 1px solid var(--line); }
   #log { font-family: var(--mono); font-size: 12px; height: 260px; overflow: auto; background: var(--bg);
          border-radius: 8px; padding: 8px; white-space: pre; }
   .tx { color: var(--accent); } .rx { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--bad); }
@@ -120,14 +144,28 @@
     <div class="row"><button data-w data-mode="HEAT_AND_EXTRACT">Heat &amp; extract</button></div>
   </section>
 
-  <section>
+  <section class="wide">
     <h2>Cups</h2>
-    <div class="stats">
+    <div class="stats four">
       <div class="stat"><div class="k">Today</div><div class="v" id="cToday">–</div></div>
       <div class="stat"><div class="k">This week</div><div class="v" id="cWeek">–</div></div>
       <div class="stat"><div class="k">This month</div><div class="v" id="cMonth">–</div></div>
       <div class="stat"><div class="k">This year</div><div class="v" id="cYear">–</div></div>
     </div>
+    <div class="chartbar">
+      <div class="seg" role="group" aria-label="Period">
+        <button data-period="week" aria-pressed="true">Week</button><button data-period="month" aria-pressed="false">Month</button><button data-period="year" aria-pressed="false">Year</button>
+      </div>
+      <button id="prevP" aria-label="Previous period" disabled>&lsaquo;</button>
+      <span class="title" id="pTitle">–</span>
+      <span class="total" id="pTotal"></span>
+      <button id="nextP" aria-label="Next period" disabled>&rsaquo;</button>
+    </div>
+    <div class="chartwrap">
+      <svg id="chart" role="img" aria-label="Cups chart"></svg>
+      <div id="tip" role="status"></div>
+    </div>
+    <details class="table"><summary>Show as table</summary><table id="pTable"></table></details>
     <p class="hint" id="cHint">Read from the machine when you connect. Week runs Sunday to Saturday, like the vendor app.</p>
   </section>
 
@@ -204,6 +242,115 @@ function render(s) {
   $("cMonth").textContent = cups ? cups.month : "–";
   $("cYear").textContent = cups ? cups.year : "–";
   if (cups) $("cHint").textContent = `As of ${cups.as_of}. Week runs Sunday to Saturday, like the vendor app. The machine stores ${cups.days_stored} days; "Re-read settings" reloads.`;
+  const key = cups ? `${cups.as_of}:${cups.year}:${cups.today}` : "";
+  if (key !== statsKey) { statsKey = key; loadPeriod(); }
+}
+
+// ---- cups chart -------------------------------------------------------------
+let statsKey = "", period = "week", offset = 0, lastData = null;
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, parent) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+async function loadPeriod() {
+  if (!statsKey) { lastData = null; drawChart(); return; }
+  try {
+    const r = await fetch(`/api/stats?period=${period}&offset=${offset}`);
+    const j = await r.json();
+    lastData = j.ok ? j.result : null;
+  } catch (e) { lastData = null; }
+  drawChart();
+}
+document.querySelectorAll("[data-period]").forEach((b) => (b.onclick = () => {
+  period = b.dataset.period; offset = 0;
+  document.querySelectorAll("[data-period]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  loadPeriod();
+}));
+$("prevP").onclick = () => { offset -= 1; loadPeriod(); };
+$("nextP").onclick = () => { if (offset < 0) { offset += 1; loadPeriod(); } };
+window.addEventListener("resize", () => drawChart());
+
+function niceStep(max) { return max <= 5 ? 1 : max <= 10 ? 2 : Math.ceil(max / 5); }
+function barPath(x, y, w, base) {
+  // 4px rounded data end, square at the baseline.
+  const r = Math.min(4, w / 2, base - y);
+  return `M${x},${base}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${base}Z`;
+}
+function describe(bar) {
+  if (bar.future) return "Not yet";
+  if (bar.cups == null) return "No data stored";
+  const n = `${bar.cups} cup${bar.cups === 1 ? "" : "s"}`;
+  return bar.complete ? n : `${n} (partial: older days not stored)`;
+}
+function hideTip() {
+  $("tip").style.display = "none";
+  document.querySelectorAll("#chart .hit.on").forEach((h) => h.classList.remove("on"));
+}
+function showTip(bar, x, y) {
+  const tip = $("tip"); tip.textContent = "";
+  const v = document.createElement("b"); v.textContent = describe(bar);
+  const l = document.createElement("div"); l.textContent = bar.name;
+  tip.append(v, l); tip.style.display = "block";
+  const width = tip.parentElement.clientWidth;
+  tip.style.left = Math.max(0, Math.min(x - tip.offsetWidth / 2, width - tip.offsetWidth)) + "px";
+  tip.style.top = Math.max(0, y - tip.offsetHeight - 8) + "px";
+}
+function buildTable(d) {
+  const t = $("pTable"); t.textContent = "";
+  if (!d) return;
+  const head = t.insertRow();
+  ["When", "Cups"].forEach((h) => { const th = document.createElement("th"); th.textContent = h; head.appendChild(th); });
+  d.bars.forEach((bar) => { const r = t.insertRow(); r.insertCell().textContent = bar.name; r.insertCell().textContent = describe(bar); });
+}
+function drawChart() {
+  const svg = $("chart"); svg.textContent = ""; hideTip();
+  const d = lastData;
+  $("prevP").disabled = !(d && d.can_prev);
+  $("nextP").disabled = !(d && d.can_next);
+  $("pTitle").textContent = d ? d.title : "–";
+  $("pTotal").textContent = d ? `${d.total} cup${d.total === 1 ? "" : "s"}${d.partial ? " · partial" : ""}` : "";
+  buildTable(d);
+  if (!d) return;
+  const W = svg.clientWidth || 600, H = svg.clientHeight || 220;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("aria-label", `Cups per ${d.period === "year" ? "month" : "day"}, ${d.title}: ${d.total} in total`);
+  const m = { l: 30, r: 6, t: 18, b: 22 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, base = m.t + ph;
+  const max = Math.max(1, ...d.bars.map((b) => b.cups || 0));
+  const step = niceStep(max), top = Math.ceil(max / step) * step;
+  const y = (v) => base - (v / top) * ph;
+  for (let v = 0; v <= top; v += step) {
+    svgEl("line", { class: "grid", x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, svg);
+    svgEl("text", { class: "tick", x: m.l - 6, y: y(v) + 4, "text-anchor": "end" }, svg).textContent = v;
+  }
+  const n = d.bars.length, band = pw / n;
+  const bw = Math.max(2, Math.min(24, band * 0.7));
+  // Values on the caps for week and year (7 or 12 bars) when they fit; month has too
+  // many bars for a number on each, so its values live in the tooltip and table.
+  const capLabels = d.period !== "month" && band >= 26;
+  const every = band >= 18 ? 1 : band >= 10 ? 5 : 10;
+  d.bars.forEach((bar, i) => {
+    const cx = m.l + band * i + band / 2, x = cx - bw / 2;
+    if (bar.cups != null && bar.cups > 0) {
+      svgEl("path", { class: "bar", d: barPath(x, y(bar.cups), bw, base) }, svg);
+      if (capLabels) svgEl("text", { class: "cap", x: cx, y: y(bar.cups) - 5, "text-anchor": "middle" }, svg).textContent = bar.cups;
+    } else if (bar.cups == null && !bar.future) {
+      svgEl("rect", { class: "nodata", x, y: base - 2, width: bw, height: 2 }, svg);  // no data stored
+    }
+    const showX = d.period !== "month" || every === 1 || i === 0 || (i + 1) % every === 0;
+    if (showX) {
+      const lab = d.period === "year" && band < 28 ? bar.label[0] : bar.label;
+      svgEl("text", { class: "xl", x: cx, y: H - 6, "text-anchor": "middle" }, svg).textContent = lab;
+    }
+    const hit = svgEl("rect", { class: "hit", x: m.l + band * i, y: m.t - 14, width: band, height: ph + 14,
+                                tabindex: 0, role: "img", "aria-label": `${bar.name}: ${describe(bar)}` }, svg);
+    const on = () => { hideTip(); hit.classList.add("on"); showTip(bar, cx, Math.min(y(bar.cups || 0), base)); };
+    hit.addEventListener("pointerenter", on); hit.addEventListener("focus", on);
+    hit.addEventListener("pointerleave", hideTip); hit.addEventListener("blur", hideTip);
+  });
 }
 const EDITABLE = ["tgt", "flow", "presoak", "standstill", "ext"];
 function setIfClean(id, value) {

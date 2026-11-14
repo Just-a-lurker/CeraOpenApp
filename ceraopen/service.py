@@ -166,6 +166,55 @@ class MachineService:
         except Exception as exc:  # noqa: BLE001
             self._emit("log", level="warn", msg=f"could not read cup stats: {exc}")
 
+    def stats_period(self, period: str, offset: int = 0) -> Dict[str, Any]:
+        """Chart data for one week, month or year of the cup history.
+
+        ``offset`` 0 is the current period, -1 the one before, and so on.
+        Each bar has ``cups`` (None = no data) and ``complete`` (False when
+        part of it is older than what the machine stores).
+        """
+        s, day = self.stats, self.stats_date
+        if s is None or day is None:
+            raise CeraError("no cup stats yet: connect to the machine first")
+        offset = min(int(offset), 0)
+        series = {"week": s.week_series, "month": s.month_series, "year": s.year_series}
+        if period not in series:
+            raise ValueError("period must be week, month or year")
+
+        def build(off):
+            return series[period](day, off)
+
+        buckets = build(offset)
+        first, last = buckets[0].start, buckets[-1].start
+        if period == "week":
+            title = f"{first:%d %b} – {last:%d %b %Y}"
+            labels = [f"{b.start:%a}" for b in buckets]
+            names = [f"{b.start:%A %d %B %Y}" for b in buckets]
+        elif period == "month":
+            title = f"{first:%B %Y}"
+            labels = [str(b.start.day) for b in buckets]
+            names = [f"{b.start:%A %d %B %Y}" for b in buckets]
+        else:
+            title = str(first.year)
+            labels = [f"{b.start:%b}" for b in buckets]
+            names = [f"{b.start:%B %Y}" for b in buckets]
+        known = [b.cups for b in buckets if b.cups is not None]
+        return {
+            "period": period,
+            "offset": offset,
+            "title": title,
+            "total": sum(known),
+            "partial": any(not b.complete for b in buckets),
+            "can_prev": any(b.cups is not None for b in build(offset - 1)),
+            "can_next": offset < 0,
+            "oldest": s.oldest(day).isoformat(),
+            "bars": [
+                {"label": lab, "name": name, "start": b.start.isoformat(),
+                 "cups": b.cups, "complete": b.complete, "future": b.start > day}
+                for b, lab, name in zip(buckets, labels, names)
+            ],
+        }
+
     def _stats_view(self):
         s, day = self.stats, self.stats_date
         if s is None or day is None:

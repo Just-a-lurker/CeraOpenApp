@@ -117,6 +117,31 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(st["stats"]["year"], 9)
         self.assertEqual(st["stats"]["days_stored"], 15)
 
+    async def test_stats_periods_api(self):
+        import datetime as dt
+        from cera.messages import Stats
+        self.svc._client = FakeClient()
+        r = await self.client.get("/api/stats?period=week")
+        self.assertEqual(r.status, 502)                    # no stats read yet
+        self.svc.stats = Stats(b"9", (2, 0, 0, 0, 0, 0, 1, 1) + (0,) * 6 + (5,))
+        self.svc.stats_date = dt.date(2026, 11, 14)        # a Saturday
+        j = (await (await self.client.get("/api/stats?period=week")).json())["result"]
+        self.assertEqual([b["cups"] for b in j["bars"]], [1, 0, 0, 0, 0, 0, 2])
+        self.assertEqual(j["bars"][0]["label"], "Sun")
+        self.assertEqual(j["total"], 3)
+        self.assertTrue(j["can_prev"])
+        self.assertFalse(j["can_next"])
+        j = (await (await self.client.get("/api/stats?period=month&offset=-1")).json())["result"]
+        self.assertEqual(j["title"], "October 2026")
+        self.assertTrue(j["partial"])
+        self.assertFalse(j["can_prev"])                    # September has no stored days
+        self.assertTrue(j["can_next"])
+        j = (await (await self.client.get("/api/stats?period=year")).json())["result"]
+        self.assertEqual(len(j["bars"]), 12)
+        self.assertTrue(j["bars"][11]["future"])
+        r = await self.client.get("/api/stats?period=decade")
+        self.assertEqual(r.status, 400)
+
     async def test_disconnect_turns_control_off(self):
         self.svc._client = FakeClient()
         await self.post("control", {"enabled": True})
