@@ -1,0 +1,27 @@
+[project]
+name = "ceraopenapp"
+version = "0.1.0"
+description = "Test app for CeraLib-supported portable espresso machines"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.9"
+dependencies = [
+    "ceralib @ git+https://github.com/Just-a-lurker/CeraLib.git@main",
+    "aiohttp>=3.8",
+]
+
+[project.urls]
+Source = "https://github.com/Just-a-lurker/CeraOpenApp"
+
+[project.scripts]
+ceraopen = "ceraopen.__main__:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ceraopen"]
+
+[tool.setuptools.package-data]
+ceraopen = ["static/*"]
