@@ -3,69 +3,180 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CeraOpen Test App</title>
+<title>CeraOpen</title>
 <style>
   :root {
-    --bg: #f6f5f3; --card: #ffffff; --text: #1d1b19; --muted: #6b6560; --line: #e3dfda;
-    --accent: #7a4a2a; --accent-text: #ffffff; --ok: #2f7d4f; --warn: #a86b00; --bad: #b3261e;
+    --bg: #f4f1ed; --card: #ffffff; --raised: #f8f6f3; --text: #1f1a17; --muted: #6f665f; --line: #e6e0d9;
+    --accent: #6f4428; --accent-hover: #5c3820; --accent-text: #ffffff; --accent-soft: #f1e7df;
+    --ok: #2f7d4f; --warn: #9a6200; --bad: #b3261e; --bad-hover: #9a2019;
     --bar: #a85a2a; /* chart bars: validated on #ffffff (lightness, chroma, contrast) */
+    --radius: 14px; --shadow: 0 1px 2px rgba(31, 26, 23, .06), 0 4px 16px rgba(31, 26, 23, .04);
     --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #161412; --card: #201d1a; --text: #ece7e2; --muted: #a39b93; --line: #34302c;
-      --accent: #c98a5a; --accent-text: #1a1310; --ok: #5cc88a; --warn: #e0a640; --bad: #f2766c;
+      --bg: #141210; --card: #1d1a17; --raised: #24201c; --text: #efe9e3; --muted: #a59c94; --line: #322c27;
+      --accent: #c98a5a; --accent-hover: #d79a6b; --accent-text: #1a1310; --accent-soft: #2e2219;
+      --ok: #5cc88a; --warn: #e0a640; --bad: #e5574c; --bad-hover: #ef6a60;
       --bar: #c2702f; /* validated on #201d1a */
+      --shadow: none;
+      color-scheme: dark;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px;
-           padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
-  header h1 { font-size: 17px; margin: 0; flex: 1; }
-  .pill { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--ok); border-color: var(--ok); }
-  .pill.warn { color: var(--warn); border-color: var(--warn); }
-  main { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
-         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
-  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
-  .wide { grid-column: 1 / -1; }
-  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
-           background: var(--bg); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  #stop { background: var(--bad); color: #fff; border-color: var(--bad); font-weight: 700; padding: 8px 20px; }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-  .row label { min-width: 120px; color: var(--muted); }
-  input, select { font: inherit; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line);
-                  background: var(--bg); color: var(--text); width: 110px; }
-  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .stat { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
-  .stat .k { font-size: 12px; color: var(--muted); }
-  .stat .v { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .hint { font-size: 13px; color: var(--muted); }
-  .devices { list-style: none; padding: 0; margin: 8px 0 0; }
-  .devices li { display: flex; justify-content: space-between; align-items: center; gap: 8px;
-                padding: 8px 0; border-top: 1px solid var(--line); }
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  /* ---- header ---- */
+  header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--card) 92%, transparent);
+           backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; flex-direction: column; margin-right: auto; min-width: 0; }
+  .brand b { font-size: 17px; letter-spacing: -.01em; }
+  .brand span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted);
+          padding: 4px 10px; border-radius: 999px; background: var(--raised); }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .chip.on i { background: var(--ok); } .chip.busy i { background: var(--warn); }
+  @media (max-width: 600px) {
+    /* Phone: name and STOP on the first row, status and lock below. */
+    .bar { row-gap: 6px; }
+    .brand { order: 1; } #stop { order: 2; }
+    #conn { order: 3; } #control { order: 4; } #disconnect { order: 5; margin-left: auto; min-height: 32px; padding: 4px 10px; }
+    .brand { flex: 1 1 auto; }
+    #conn, #control { font-size: 12px; }
+  }
+
+  /* ---- buttons ---- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px;
+         padding: 8px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
+         cursor: pointer; font-weight: 500; transition: background .15s, border-color .15s; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line); }
+  .btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; letter-spacing: .02em; }
+  .btn.danger:hover:not(:disabled) { background: var(--bad-hover); border-color: var(--bad-hover); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* lock switch */
+  .lock { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; cursor: pointer;
+          color: var(--muted); font-size: 13px; padding: 6px 4px; }
+  .lock .track { width: 36px; height: 20px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+  .lock .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+                        background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+  .lock[aria-checked="true"] { color: var(--warn); }
+  .lock[aria-checked="true"] .track { background: var(--warn); }
+  .lock[aria-checked="true"] .track::after { transform: translateX(16px); }
+  .lock:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ---- layout ---- */
+  main { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  @media (max-width: 860px) {
+    .cols { grid-template-columns: minmax(0, 1fr); }
+    .col { display: contents; }
+    .hero { order: 1; } .recipe { order: 2; } .cups { order: 3; } .schedule { order: 4; }
+  }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+          padding: 20px; min-width: 0; }
+  .card h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .hint { font-size: 13px; color: var(--muted); margin: 0; }
+  body[data-conn="on"] .connect, body:not([data-conn="on"]) .dash { display: none; }
+
+  /* ---- connect ---- */
+  .connect { max-width: 560px; margin: 8vh auto 0; text-align: center; padding: 32px 24px; }
+  .connect h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .connect p { margin: 0 auto 20px; max-width: 420px; }
+  .devices { list-style: none; padding: 0; margin: 20px 0 0; text-align: left; }
+  .devices li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px;
+                border-radius: 10px; }
+  .devices li + li { border-top: 1px solid var(--line); }
+  .devices li.likely { background: var(--accent-soft); }
   .devices .name { font-weight: 600; overflow-wrap: anywhere; }
   .devices .addr { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-  .switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
-            border: 1px dashed var(--warn); }
-  .switch input { width: auto; }
-  .slider { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; flex: 1; min-width: 200px; }
-  .slider input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); }
-  .slider .val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
-  .slider .ends { grid-column: 1; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
-  input.dirty, select.dirty { border-color: var(--warn); }
-  .stats.four { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; padding: 6px 14px; background: transparent; }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
-  .chartbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; }
-  .chartbar .title { flex: 1; min-width: 140px; font-weight: 600; }
-  .chartbar .total { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---- hero ---- */
+  .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 4px 12px; border-radius: 999px;
+           background: var(--raised); }
+  .state i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .state.heat i { background: var(--warn); } .state.brew i { background: var(--ok); }
+  .state.heat, .state.brew { box-shadow: inset 0 0 0 1px var(--line); }
+  .battery { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .cells { display: inline-flex; gap: 2px; padding: 2px; border: 1.5px solid var(--muted); border-radius: 4px; position: relative; }
+  .cells::after { content: ""; position: absolute; right: -4px; top: 4px; width: 2px; height: 6px; background: var(--muted); border-radius: 0 1px 1px 0; }
+  .cells span { width: 5px; height: 10px; border-radius: 1px; background: var(--line); }
+  .cells span.on { background: var(--text); }
+  .temp { display: flex; align-items: flex-start; gap: 4px; margin: 18px 0 2px; font-variant-numeric: tabular-nums; }
+  .temp b { font-size: 64px; line-height: 1; font-weight: 650; letter-spacing: -.03em; }
+  .temp span { font-size: 22px; color: var(--muted); margin-top: 6px; }
+  .target { color: var(--muted); }
+  .target b { color: var(--text); font-weight: 600; }
+  .meter { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; margin: 14px 0 20px; }
+  .meter div { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .6s ease; }
+  .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .action { min-height: 64px; flex-direction: column; gap: 2px; text-align: center; }
+  .action small { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .action.primary small { color: inherit; opacity: .8; }
+  .stopbig { width: 100%; min-height: 64px; font-size: 18px; }
+  .lockhint { margin-top: 12px; }
+  @media (max-width: 480px) { .actions { grid-template-columns: minmax(0, 1fr); } .action { min-height: 52px; } }
+
+  /* ---- recipe ---- */
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
+  .field + .field { border-top: 1px solid var(--line); }
+  .field label { font-weight: 500; }
+  .field label small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
+  .stepper button { width: 38px; height: 38px; border: 0; background: var(--raised); cursor: pointer; font-size: 18px; line-height: 1; }
+  .stepper button:hover:not(:disabled) { background: var(--accent-soft); }
+  .stepper button:disabled { opacity: .4; cursor: not-allowed; }
+  .stepper output { min-width: 76px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stepper.dirty { border-color: var(--warn); }
+  .flowfield { flex-wrap: wrap; }
+  .flowctl { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; flex: 1 1 220px; max-width: 300px; }
+  .flowctl input { width: 100%; accent-color: var(--accent); margin: 0; }
+  .flowctl output { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+  .flowctl .ends { grid-column: 1; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .flowctl.dirty output { color: var(--warn); }
+  .savebar { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+  .savebar .hint { margin-right: auto; }
+
+  /* ---- schedule ---- */
+  .banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--raised); margin-bottom: 14px; }
+  .banner.on { background: color-mix(in srgb, var(--warn) 12%, var(--card)); }
+  .banner b { display: block; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .grid2 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .grid2 input, .grid2 select { min-height: 40px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line);
+                                background: var(--card); color: var(--text); width: 100%; }
+  .grid2 select:disabled { opacity: .5; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  details.more { margin-top: 12px; }
+  details.more summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+
+  /* ---- cups ---- */
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .tile { background: var(--raised); border-radius: 10px; padding: 10px 12px; }
+  .tile span { display: block; font-size: 12px; color: var(--muted); }
+  .tile b { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  @media (max-width: 420px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .seg { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--raised); }
+  .seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .chartbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 6px; }
+  .chartbar .title { font-weight: 600; }
+  .chartbar .total { color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .nav { display: inline-flex; align-items: center; gap: 4px; }
+  .nav .btn { min-height: 32px; width: 32px; padding: 0; font-size: 18px; }
   .chartwrap { position: relative; }
   #chart { display: block; width: 100%; height: 220px; }
   #chart .grid { stroke: var(--line); stroke-width: 1; }
@@ -75,125 +186,151 @@
   #chart .nodata { fill: var(--muted); fill-opacity: .5; }
   #chart .hit { fill: transparent; outline: none; }
   #chart .hit.drill { cursor: pointer; }
-  .rnow { font-weight: 600; margin: 10px 0; }
-  .rnow.on { color: var(--warn); }
   #chart .hit.on, #chart .hit:focus-visible { fill: var(--line); fill-opacity: .35; }
   #tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px;
          padding: 6px 10px; font-size: 12px; line-height: 1.35; white-space: nowrap; display: none; z-index: 1; }
   #tip b { font-size: 14px; }
-  details.table summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 6px; }
-  details.table table { border-collapse: collapse; margin-top: 6px; font-size: 13px; font-variant-numeric: tabular-nums; }
-  details.table td, details.table th { padding: 3px 14px 3px 0; text-align: left; border-bottom: 1px solid var(--line); }
-  #log { font-family: var(--mono); font-size: 12px; height: 260px; overflow: auto; background: var(--bg);
-         border-radius: 8px; padding: 8px; white-space: pre; }
-  .tx { color: var(--accent); } .rx { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--bad); }
-  #toast { position: fixed; left: 16px; right: 16px; bottom: 16px; max-width: 560px; margin: 0 auto; z-index: 3;
-           padding: 10px 14px; border-radius: 10px; background: var(--text); color: var(--bg); display: none; }
+  details.table table { border-collapse: collapse; margin-top: 8px; font-size: 13px; font-variant-numeric: tabular-nums; width: 100%; }
+  details.table td, details.table th { padding: 4px 12px 4px 0; text-align: left; border-bottom: 1px solid var(--line); }
+
+  /* ---- developer ---- */
+  .dev { margin-top: 16px; padding: 0; }
+  .dev summary { cursor: pointer; padding: 14px 20px; color: var(--muted); font-size: 14px; }
+  .dev[open] summary { border-bottom: 1px solid var(--line); }
+  .dev .inner { padding: 14px 20px 20px; }
+  .devrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+  #log { font-family: var(--mono); font-size: 12px; height: 240px; overflow: auto; background: var(--raised);
+         border-radius: 10px; padding: 10px; white-space: pre; }
+  .tx { color: var(--accent); } .rx { color: var(--ok); } .warnl { color: var(--warn); } .err { color: var(--bad); }
+
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: min(560px, calc(100% - 32px));
+           z-index: 9; padding: 10px 16px; border-radius: 10px; background: var(--text); color: var(--bg); display: none;
+           box-shadow: 0 8px 24px rgba(0,0,0,.2); }
 </style>
 </head>
-<body>
+<body data-conn="off">
 <header>
-  <h1>CeraOpen</h1>
-  <span id="conn" class="pill">disconnected</span>
-  <button id="stop" disabled title="Stops whatever mode is running. Always allowed while connected.">STOP</button>
+  <div class="bar">
+    <div class="brand"><b>CeraOpen</b><span id="device">Not connected</span></div>
+    <span id="conn" class="chip"><i></i><span>Disconnected</span></span>
+    <button id="control" class="lock" role="switch" aria-checked="false" hidden
+            title="Settings, brewing and scheduling are refused until controls are unlocked">
+      <span class="track"></span><span id="controlLabel">Controls locked</span></button>
+    <button id="disconnect" class="btn ghost" hidden>Disconnect</button>
+    <button id="stop" class="btn danger" hidden title="Stops whatever is running. Always allowed while connected.">STOP</button>
+  </div>
 </header>
 
 <main>
-  <section>
-    <h2>Machine</h2>
-    <div class="row">
-      <button id="scan" class="primary">Scan</button>
-      <button id="disconnect" disabled>Disconnect</button>
-    </div>
-    <p class="hint">Close the vendor app first: the machine accepts one connection. Connecting takes about 10 s.</p>
+  <section class="card connect">
+    <h1>Connect your machine</h1>
+    <p class="hint">Close the HappyGo app first: the machine accepts one connection at a time. Connecting takes about 10 seconds.</p>
+    <button id="scan" class="btn primary">Scan for machines</button>
     <ul id="devices" class="devices"></ul>
-    <p id="info" class="hint"></p>
   </section>
 
-  <section>
-    <h2>Live status</h2>
-    <div class="stats">
-      <div class="stat"><div class="k">Water</div><div class="v" id="water">–</div></div>
-      <div class="stat"><div class="k">Target</div><div class="v" id="target">–</div></div>
-      <div class="stat"><div class="k">State</div><div class="v" id="state" style="font-size:18px">–</div></div>
-      <div class="stat"><div class="k">Battery (raw, inferred %)</div><div class="v" id="battery">–</div></div>
-    </div>
-  </section>
+  <div class="dash">
+    <div class="cols">
+      <div class="col">
+        <section class="card hero" aria-label="Machine status">
+          <div class="hero-top">
+            <span id="stateBadge" class="state"><i></i><span id="stateText">Idle</span></span>
+            <span class="battery" title="Battery (estimated from the machine's raw value)">
+              <span class="cells" id="cells"><span></span><span></span><span></span><span></span></span>
+              <span id="batteryText">–</span></span>
+          </div>
+          <div class="temp" aria-live="polite"><b id="water">–</b><span>°C</span></div>
+          <div class="target">Water temperature · target <b id="targetShow">–</b></div>
+          <div class="meter" aria-hidden="true"><div id="meterFill"></div></div>
+          <div class="actions" id="startActions">
+            <button class="btn action" data-w data-mode="HEAT">Heat<small>water only</small></button>
+            <button class="btn action primary" data-w data-mode="HEAT_AND_EXTRACT">Heat &amp; extract<small>full shot</small></button>
+            <button class="btn action" data-w data-mode="EXTRACT">Extract<small>no heating</small></button>
+          </div>
+          <button id="heroStop" class="btn danger stopbig" hidden>Stop</button>
+          <p class="hint lockhint" id="brewHint">Each start asks for confirmation. Closing every tab of this page while it runs sends STOP.</p>
+        </section>
 
-  <section>
-    <h2>Settings</h2>
-    <label class="switch"><input type="checkbox" id="control" disabled>
-      <span><b>Allow control</b><br><span class="hint">Writes are refused until this is on. Turns off on disconnect.</span></span></label>
-    <div class="row"><label for="tgt">Target °C</label><input id="tgt" type="number" min="60" max="95" step="1" value="95"><button data-w id="setTarget">Set</button></div>
-    <div class="row"><label for="flow">Flow</label>
-      <div class="slider">
-        <input id="flow" type="range" min="1" max="15" step="1" value="8" list="flowTicks" aria-describedby="flowVal">
-        <span class="val" id="flowVal">8</span>
-        <div class="ends"><span>min 1</span><span>normal 8</span><span>max 15</span></div>
+        <section class="card cups">
+          <div class="card-head"><h2>Cups</h2><span class="hint" id="cAsOf"></span></div>
+          <div class="tiles">
+            <div class="tile"><span>Today</span><b id="cToday">–</b></div>
+            <div class="tile"><span>This week</span><b id="cWeek">–</b></div>
+            <div class="tile"><span>This month</span><b id="cMonth">–</b></div>
+            <div class="tile"><span>This year</span><b id="cYear">–</b></div>
+          </div>
+          <div class="chartbar">
+            <div class="seg" role="group" aria-label="Period">
+              <button data-period="week" aria-pressed="true">Week</button><button data-period="month" aria-pressed="false">Month</button><button data-period="year" aria-pressed="false">Year</button>
+            </div>
+            <span class="nav">
+              <button id="prevP" class="btn" aria-label="Previous period" disabled>&lsaquo;</button>
+              <button id="nextP" class="btn" aria-label="Next period" disabled>&rsaquo;</button>
+            </span>
+            <span class="title" id="pTitle">–</span>
+            <span class="total" id="pTotal"></span>
+          </div>
+          <div class="chartwrap">
+            <svg id="chart" role="img" aria-label="Cups chart"></svg>
+            <div id="tip" role="status"></div>
+          </div>
+          <details class="more table"><summary>Show as table</summary><table id="pTable"></table></details>
+          <p class="hint" id="cHint" style="margin-top:10px">Week runs Sunday to Saturday, like the vendor app.</p>
+        </section>
       </div>
-      <datalist id="flowTicks"><option value="1"></option><option value="8"></option><option value="15"></option></datalist>
-      <button data-w id="setFlow">Set</button></div>
-    <div class="row"><label for="presoak">Presoak s</label><input id="presoak" type="number" min="0" max="30" value="0"><button data-w id="setPresoak">Set</button></div>
-    <div class="row"><label for="standstill">Standstill s</label><input id="standstill" type="number" min="0" max="30" value="0"><button data-w id="setStandstill">Set</button></div>
-    <div class="row"><label for="ext">Extraction raw</label><input id="ext" type="number" min="0" max="255" value="120"><button data-w id="setExt">Set</button><span class="hint" id="extS"></span></div>
-    <div class="row"><button id="refresh" disabled>Re-read settings</button></div>
-  </section>
 
-  <section>
-    <h2>Brew</h2>
-    <p class="hint">Each start asks for confirmation. Keep the machine supervised. If you close every tab of this page while it runs, the app sends STOP.</p>
-    <div class="row"><button data-w data-mode="HEAT">Heat only</button></div>
-    <div class="row"><button data-w data-mode="EXTRACT">Extract only</button></div>
-    <div class="row"><button data-w data-mode="HEAT_AND_EXTRACT">Heat &amp; extract</button></div>
-  </section>
+      <div class="col">
+        <section class="card recipe">
+          <div class="card-head"><h2>Recipe</h2><button id="refresh" class="btn ghost" style="min-height:32px;padding:4px 10px">Re-read</button></div>
+          <div class="field"><label>Water temperature<small>60–95 °C</small></label>
+            <span class="stepper" data-field="target"><button data-dir="-1" aria-label="Lower temperature">−</button><output>–</output><button data-dir="1" aria-label="Raise temperature">+</button></span></div>
+          <div class="field flowfield"><label for="flow">Flow<small>1 (min) to 15 (max)</small></label>
+            <div class="flowctl" id="flowctl">
+              <input id="flow" type="range" min="1" max="15" step="1" value="8" list="flowTicks">
+              <output id="flowVal">8</output>
+              <div class="ends"><span>min</span><span>normal</span><span>max</span></div>
+            </div>
+            <datalist id="flowTicks"><option value="1"></option><option value="8"></option><option value="15"></option></datalist></div>
+          <div class="field"><label>Presoak<small>wets the coffee first</small></label>
+            <span class="stepper" data-field="presoak"><button data-dir="-1" aria-label="Shorter presoak">−</button><output>–</output><button data-dir="1" aria-label="Longer presoak">+</button></span></div>
+          <div class="field"><label>Standstill<small>pause after presoak</small></label>
+            <span class="stepper" data-field="standstill"><button data-dir="-1" aria-label="Shorter standstill">−</button><output>–</output><button data-dir="1" aria-label="Longer standstill">+</button></span></div>
+          <div class="field"><label>Extraction time<small>seconds are estimated</small></label>
+            <span class="stepper" data-field="ext"><button data-dir="-1" aria-label="Shorter extraction">−</button><output>–</output><button data-dir="1" aria-label="Longer extraction">+</button></span></div>
+          <div class="savebar">
+            <span class="hint" id="saveHint">No changes</span>
+            <button id="discard" class="btn ghost" disabled>Discard</button>
+            <button id="save" class="btn primary" disabled>Save</button>
+          </div>
+        </section>
 
-  <section>
-    <h2>Schedule</h2>
-    <p class="hint"><b>The machine starts by itself</b> at this time, on its own clock, even if this app and the phone are off. It runs once, then switches off the schedule. Only set it when water and a cup will be in place.</p>
-    <p id="rNow" class="rnow">–</p>
-    <div class="row"><label for="rMode">Mode</label>
-      <select id="rMode" style="width:auto"><option value="HEAT_AND_EXTRACT">Heat &amp; extract</option><option value="HEAT">Heating</option><option value="EXTRACT">Extract only</option></select></div>
-    <div class="row"><label for="rTime">Time</label><input id="rTime" type="time" value="07:00" required></div>
-    <div class="row"><label for="rAlarm">Reminder</label>
-      <select id="rAlarm" style="width:auto"><option value="0">Silent</option><option value="1">Alarm</option></select></div>
-    <div class="row"><label for="rBeep">Sound</label>
-      <select id="rBeep" style="width:auto"><option value="DING_DONG">Ding dong</option><option value="DI_DI">Di di</option><option value="BU_GU">Bu gu</option><option value="BI_BI">Bi bi</option></select></div>
-    <p class="hint">The reminder sound is played by the phone app (HappyGo), not the machine; it is stored here so HappyGo keeps your choice.</p>
-    <div class="row"><button data-w id="rSet">Schedule</button><button id="rCancel" disabled>Cancel schedule</button></div>
-  </section>
-
-  <section class="wide">
-    <h2>Cups</h2>
-    <div class="stats four">
-      <div class="stat"><div class="k">Today</div><div class="v" id="cToday">–</div></div>
-      <div class="stat"><div class="k">This week</div><div class="v" id="cWeek">–</div></div>
-      <div class="stat"><div class="k">This month</div><div class="v" id="cMonth">–</div></div>
-      <div class="stat"><div class="k">This year</div><div class="v" id="cYear">–</div></div>
-    </div>
-    <div class="chartbar">
-      <div class="seg" role="group" aria-label="Period">
-        <button data-period="week" aria-pressed="true">Week</button><button data-period="month" aria-pressed="false">Month</button><button data-period="year" aria-pressed="false">Year</button>
+        <section class="card schedule">
+          <div class="card-head"><h2>Schedule</h2></div>
+          <div class="banner" id="rBanner"><div><b id="rNow">Nothing scheduled</b><span class="hint" id="rSub"></span></div></div>
+          <div class="grid2">
+            <label>Mode<select id="rMode"><option value="HEAT_AND_EXTRACT">Heat &amp; extract</option><option value="HEAT">Heating</option><option value="EXTRACT">Extract only</option></select></label>
+            <label>Time<input id="rTime" type="time" value="07:00" required></label>
+            <label>Reminder<select id="rAlarm"><option value="0">Silent</option><option value="1">Alarm</option></select></label>
+            <label>Sound<select id="rBeep"><option value="DING_DONG">Ding dong</option><option value="DI_DI">Di di</option><option value="BU_GU">Bu gu</option><option value="BI_BI">Bi bi</option></select></label>
+          </div>
+          <div class="row"><button id="rSet" class="btn primary" data-w>Schedule</button><button id="rCancel" class="btn" disabled>Cancel schedule</button></div>
+          <details class="more"><summary>How scheduling works</summary>
+            <p class="hint" style="margin-top:8px">The machine starts <b>by itself</b> at this time on its own clock, even if this app and the phone are off. It runs once; a time already passed today runs tomorrow. The reminder sound is played by the HappyGo app, not the machine; it is stored so HappyGo keeps your choice.</p>
+          </details>
+        </section>
       </div>
-      <button id="prevP" aria-label="Previous period" disabled>&lsaquo;</button>
-      <span class="title" id="pTitle">–</span>
-      <span class="total" id="pTotal"></span>
-      <button id="nextP" aria-label="Next period" disabled>&rsaquo;</button>
     </div>
-    <div class="chartwrap">
-      <svg id="chart" role="img" aria-label="Cups chart"></svg>
-      <div id="tip" role="status"></div>
-    </div>
-    <details class="table"><summary>Show as table</summary><table id="pTable"></table></details>
-    <p class="hint" id="cHint">Read from the machine when you connect. Week runs Sunday to Saturday, like the vendor app.</p>
-  </section>
 
-  <section class="wide">
-    <h2>Frame log</h2>
-    <div class="row"><label style="min-width:auto"><input type="checkbox" id="hideHb" checked style="width:auto"> hide heartbeats</label><button id="clear">Clear</button></div>
-    <div id="log"></div>
-  </section>
+    <details class="card dev">
+      <summary>Developer: frame log</summary>
+      <div class="inner">
+        <div class="devrow"><label><input type="checkbox" id="hideHb" checked> hide heartbeats</label><button id="clear" class="btn ghost" style="min-height:30px;padding:2px 10px">Clear</button></div>
+        <div id="log"></div>
+      </div>
+    </details>
+  </div>
 </main>
-<div id="toast"></div>
+<div id="toast" role="status"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -203,7 +340,6 @@ function toast(msg, ms = 3500) {
   const t = $("toast"); t.textContent = msg; t.style.display = "block";
   clearTimeout(t._h); t._h = setTimeout(() => (t.style.display = "none"), ms);
 }
-
 async function api(path, body) {
   const r = await fetch("/api/" + path, { method: "POST", headers: { "Content-Type": "application/json" },
                                           body: JSON.stringify(body || {}) });
@@ -212,7 +348,6 @@ async function api(path, body) {
   if (j.state) render(j.state);
   return j.result;
 }
-
 function log(cls, text) {
   const el = $("log"); const line = document.createElement("div");
   line.className = cls; line.textContent = `${new Date().toLocaleTimeString()}  ${text}`;
@@ -226,63 +361,139 @@ function logFrame(f) {
   log(f.dir === "TX" ? "tx" : "rx", `${f.dir}  ${f.hex}`);
 }
 
+// ---- recipe: edits are drafts until Save -----------------------------------
+const FIELDS = {
+  target:     { min: 60, max: 95,  step: 1,  fmt: (v) => `${v} °C` },
+  presoak:    { min: 0,  max: 30,  step: 1,  fmt: (v) => `${v} s` },
+  standstill: { min: 0,  max: 30,  step: 1,  fmt: (v) => `${v} s` },
+  // Raw value on the machine; seconds = raw / 2 + 60 (inferred), the app steps 10 s.
+  ext:        { min: 0,  max: 240, step: 20, fmt: (v) => `${v / 2 + 60} s` },
+};
+const FLOW_NAMES = { 1: "min", 8: "normal", 15: "max" };
+let machine = {}, draft = {};
+function dirtyKeys() { return Object.keys(draft).filter((k) => machine[k] !== undefined && draft[k] !== machine[k]); }
+function renderRecipe() {
+  for (const key in machine) if (draft[key] === undefined) draft[key] = machine[key];
+  const canWrite = !!(S && S.connected && S.control_enabled);
+  document.querySelectorAll(".stepper").forEach((el) => {
+    const key = el.dataset.field, f = FIELDS[key], v = draft[key];
+    el.querySelector("output").textContent = v === undefined ? "–" : f.fmt(v);
+    el.classList.toggle("dirty", v !== undefined && v !== machine[key]);
+    el.querySelectorAll("button").forEach((b) => {
+      const next = (v ?? 0) + f.step * Number(b.dataset.dir);
+      b.disabled = !canWrite || v === undefined || next < f.min || next > f.max;
+    });
+  });
+  if (draft.flow !== undefined && document.activeElement !== $("flow")) $("flow").value = draft.flow;
+  const fv = Number($("flow").value);
+  $("flowVal").textContent = FLOW_NAMES[fv] ? `${fv} · ${FLOW_NAMES[fv]}` : String(fv);
+  $("flow").disabled = !canWrite;
+  $("flowctl").classList.toggle("dirty", draft.flow !== undefined && draft.flow !== machine.flow);
+  const dirty = dirtyKeys();
+  $("save").disabled = !canWrite || !dirty.length;
+  $("discard").disabled = !dirty.length;
+  $("saveHint").textContent = !S || !S.connected ? "" : !S.control_enabled ? "Unlock controls to edit"
+    : dirty.length ? `${dirty.length} unsaved change${dirty.length > 1 ? "s" : ""}` : "No changes";
+}
+document.querySelectorAll(".stepper button").forEach((b) => (b.onclick = () => {
+  const key = b.closest(".stepper").dataset.field, f = FIELDS[key];
+  draft[key] = Math.min(f.max, Math.max(f.min, draft[key] + f.step * Number(b.dataset.dir)));
+  renderRecipe();
+}));
+$("flow").addEventListener("input", () => { draft.flow = Number($("flow").value); renderRecipe(); });
+$("discard").onclick = () => { draft = {}; renderRecipe(); };
+$("save").onclick = async () => {
+  const dirty = dirtyKeys();
+  $("save").disabled = true;
+  try {
+    if (dirty.includes("target")) await api("target", { celsius: draft.target });
+    const map = { flow: "flow", presoak: "presoak_s", standstill: "standstill_s", ext: "extraction_raw" };
+    const body = {};
+    dirty.forEach((k) => { if (map[k]) body[map[k]] = draft[k]; });
+    if (Object.keys(body).length) await api("settings", body);
+    dirty.forEach((k) => delete draft[k]);
+    toast("Recipe saved");
+  } catch (e) { /* toast already shown; drafts are kept so nothing is lost */ }
+  renderRecipe();
+};
+
+// ---- main render -------------------------------------------------------------
+const STATE_TEXT = { IDLE: "Idle", HEAT: "Heating", EXTRACT: "Extracting", HEAT_AND_EXTRACT: "Heating & extracting" };
 function render(s) {
   S = s;
+  document.body.dataset.conn = s.connected ? "on" : s.connecting ? "busy" : "off";
   const c = $("conn");
-  c.textContent = s.connecting ? "connecting…" : s.connected ? "connected" : "disconnected";
-  c.className = "pill " + (s.connected ? "ok" : s.connecting ? "warn" : "");
-  $("disconnect").disabled = !s.connected;
-  $("refresh").disabled = !s.connected;
-  $("stop").disabled = !s.connected;
-  $("control").disabled = !s.connected;
-  $("control").checked = !!s.control_enabled;
-  document.querySelectorAll("[data-w]").forEach((b) => (b.disabled = !(s.connected && s.control_enabled)));
+  c.className = "chip " + (s.connected ? "on" : s.connecting ? "busy" : "");
+  c.lastChild.textContent = s.connecting ? "Connecting…" : s.connected ? "Connected" : "Disconnected";
+  $("device").textContent = s.info ? `${s.info.model} · firmware ${s.info.version_b}`
+    : s.connected ? (s.address || "Connected") : s.connecting ? "Connecting…" : "Not connected";
+  $("disconnect").hidden = !s.connected;
+  $("stop").hidden = !s.connected;
+  $("control").hidden = !s.connected;
+  const ctl = $("control");
+  ctl.disabled = !s.connected;
+  ctl.setAttribute("aria-checked", String(!!s.control_enabled));
+  $("controlLabel").textContent = s.control_enabled ? "Controls unlocked" : "Controls locked";
+  const canWrite = !!(s.connected && s.control_enabled);
+  document.querySelectorAll("[data-w]").forEach((b) => (b.disabled = !canWrite));
   document.querySelectorAll("#devices button").forEach((b) => (b.disabled = s.connecting));
-  $("info").textContent = s.info ? `${s.info.model} · versions ${s.info.version_a} / ${s.info.version_b}` : "";
+  if (!s.connected) { machine = {}; draft = {}; }
+
   const st = s.status;
-  $("water").textContent = st ? `${st.water_temp_c} °C` : "–";
-  $("state").textContent = st ? st.state : "–";
-  $("battery").textContent = st ? st.battery_raw : "–";
-  $("target").textContent = s.target_c != null ? `${Math.round(s.target_c)} °C` : "–";
+  const state = st ? st.state : "IDLE";
+  const running = !!st && state !== "IDLE";
+  $("stateText").textContent = STATE_TEXT[state] || state;
+  $("stateBadge").className = "state " + (state === "HEAT" ? "heat" : running ? "brew" : "");
+  $("water").textContent = st ? st.water_temp_c : "–";
+  const tgt = s.target_c != null ? Math.round(s.target_c) : null;
+  $("targetShow").textContent = tgt != null ? `${tgt} °C` : "–";
+  $("meterFill").style.width = st && tgt ? `${Math.max(0, Math.min(100, (st.water_temp_c / tgt) * 100))}%` : "0";
+  const bars = st ? Math.max(0, Math.min(4, Math.ceil(st.battery_raw / 25))) : 0;
+  document.querySelectorAll("#cells span").forEach((el, i) => el.classList.toggle("on", i < bars));
+  $("batteryText").textContent = st ? `~${st.battery_raw}%` : "–";
+  $("startActions").hidden = running;
+  $("heroStop").hidden = !running;
+  $("brewHint").textContent = running ? "Running. STOP works even with controls locked."
+    : canWrite ? "Each start asks for confirmation. Closing every tab of this page while it runs sends STOP."
+    : "Unlock controls (top right) to start brewing.";
+
   const se = s.settings;
-  if (se) {
-    // Live updates arrive every second; never overwrite a value being edited.
-    setIfClean("flow", se.flow);
-    setIfClean("presoak", se.presoak_s);
-    setIfClean("standstill", se.standstill_s);
-    setIfClean("ext", se.extraction_raw);
-  }
-  updateFlowLabel();
-  updateExtHint();
+  machine = s.connected && se ? { target: tgt ?? undefined, flow: se.flow, presoak: se.presoak_s,
+                                  standstill: se.standstill_s, ext: se.extraction_raw } : {};
+  if (machine.target === undefined) delete machine.target;
+  renderRecipe();
+
   const cups = s.stats;
   $("cToday").textContent = cups ? cups.today : "–";
   $("cWeek").textContent = cups ? cups.week : "–";
   $("cMonth").textContent = cups ? cups.month : "–";
   $("cYear").textContent = cups ? cups.year : "–";
-  if (cups) $("cHint").textContent = `As of ${cups.as_of}. Week runs Sunday to Saturday, like the vendor app. The machine stores ${cups.days_stored} days; "Re-read settings" reloads.`;
+  $("cAsOf").textContent = cups ? `as of ${cups.as_of}` : "";
+  if (cups) $("cHint").textContent = `Week runs Sunday to Saturday, like the vendor app. The machine keeps ${cups.days_stored} days of history.`;
   renderReservation(s);
   statsAsOf = cups ? cups.as_of : null;
   const key = cups ? `${cups.as_of}:${cups.year}:${cups.today}` : "";
   if (key !== statsKey) { statsKey = key; loadPeriod(); }
 }
 
-// ---- schedule ---------------------------------------------------------------
+// ---- schedule ------------------------------------------------------------------
 const R_MODE = { HEAT_AND_EXTRACT: "Heat & extract", HEAT: "Heating", EXTRACT: "Extract only" };
 const R_BEEP = { DING_DONG: "ding dong", DI_DI: "di di", BU_GU: "bu gu", BI_BI: "bi bi" };
 let rFormLoaded = false;
 function renderReservation(s) {
-  const r = s.reservation, el = $("rNow");
+  const r = s.reservation;
   $("rCancel").disabled = !(s.connected && r && r.enabled);
-  if (!s.connected || !r) { el.textContent = "–"; el.className = "rnow"; rFormLoaded = false; return; }
+  if (!s.connected || !r) { $("rNow").textContent = "Nothing scheduled"; $("rSub").textContent = ""; $("rBanner").className = "banner"; rFormLoaded = false; return; }
   if (r.enabled) {
     const when = r.next_run ? new Date(r.next_run) : null;
     const day = when && when.toDateString() === new Date().toDateString() ? "today" : "tomorrow";
-    el.textContent = `Scheduled: ${R_MODE[r.mode] || r.mode} at ${r.time} (${day})` +
-      (r.alarm ? `, reminder ${R_BEEP[r.beep] || r.beep}` : ", silent");
-    el.className = "rnow on";
+    $("rNow").textContent = `${R_MODE[r.mode] || r.mode} at ${r.time} ${day}`;
+    $("rSub").textContent = "The machine will start by itself. " + (r.alarm ? `Reminder: ${R_BEEP[r.beep] || r.beep}.` : "Silent.");
+    $("rBanner").className = "banner on";
   } else {
-    el.textContent = `Nothing scheduled (last: ${R_MODE[r.mode] || r.mode} at ${r.time})`;
-    el.className = "rnow";
+    $("rNow").textContent = "Nothing scheduled";
+    $("rSub").textContent = `Last: ${R_MODE[r.mode] || r.mode} at ${r.time}`;
+    $("rBanner").className = "banner";
   }
   if (!rFormLoaded) {  // start the form from what the machine has, once per connection
     rFormLoaded = true;
@@ -304,7 +515,7 @@ $("rSet").onclick = () => {
 };
 $("rCancel").onclick = () => api("reservation/cancel").then(() => toast("Schedule cancelled")).catch(() => {});
 
-// ---- cups chart -------------------------------------------------------------
+// ---- cups chart --------------------------------------------------------------
 let statsKey = "", statsAsOf = null, period = "week", offset = 0, lastData = null;
 const SVGNS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs, parent) {
@@ -381,8 +592,8 @@ function drawChart() {
   $("pTitle").textContent = d ? d.title : "–";
   $("pTotal").textContent = d ? `${d.total} cup${d.total === 1 ? "" : "s"}${d.partial ? " · partial" : ""}` : "";
   buildTable(d);
-  if (!d) return;
-  const W = svg.clientWidth || 600, H = svg.clientHeight || 220;
+  if (!d || !svg.clientWidth) return;
+  const W = svg.clientWidth, H = svg.clientHeight || 220;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.setAttribute("aria-label", `Cups per ${d.period === "year" ? "month" : "day"}, ${d.title}: ${d.total} in total`);
   const m = { l: 30, r: 6, t: 18, b: 22 };
@@ -430,59 +641,37 @@ function drawChart() {
 }
 // Year bars open their month, except months that have not started yet.
 function drillable(bar) { return lastData && lastData.period === "year" && !bar.future; }
-const EDITABLE = ["tgt", "flow", "presoak", "standstill", "ext"];
-function setIfClean(id, value) {
-  const el = $(id);
-  if (!el.classList.contains("dirty")) el.value = String(value);
-}
-function markClean(...ids) { ids.forEach((id) => $(id).classList.remove("dirty")); }
-EDITABLE.forEach((id) => $(id).addEventListener("input", () => $(id).classList.add("dirty")));
-function updateFlowLabel() {
-  const v = Number($("flow").value);
-  $("flowVal").textContent = v === 1 ? "1 · min" : v === 8 ? "8 · normal" : v === 15 ? "15 · max" : String(v);
-}
-$("flow").addEventListener("input", updateFlowLabel);
-function updateExtHint() {
-  const raw = Number($("ext").value);
-  $("extS").textContent = Number.isFinite(raw) ? `≈ ${raw / 2 + 60} s (inferred)` : "";
-}
 
+// ---- connection and actions ------------------------------------------------------
 $("scan").onclick = async () => {
-  $("scan").disabled = true; $("devices").innerHTML = "<li class='hint'>Scanning for 8 s…</li>";
+  $("scan").disabled = true; $("scan").textContent = "Scanning…";
+  const ul = $("devices"); ul.textContent = "";
   try {
     const found = await api("scan", { timeout: 8 });
-    const ul = $("devices"); ul.innerHTML = "";
-    if (!found.length) ul.innerHTML = "<li class='hint'>Nothing found.</li>";
+    if (!found.length) { const li = document.createElement("li"); li.className = "hint"; li.textContent = "No machines found. Is it switched on and the HappyGo app closed?"; ul.appendChild(li); }
     found.sort((a, b) => (b.likely - a.likely) || (b.rssi - a.rssi)).forEach((d) => {
-      const li = document.createElement("li");
-      li.innerHTML = `<div><div class="name"></div><div class="addr"></div></div>`;
-      li.querySelector(".name").textContent = (d.name || "(no name)") + (d.likely ? "  ★" : "");
-      li.querySelector(".addr").textContent = `${d.address} · ${d.rssi} dBm`;
-      const b = document.createElement("button"); b.textContent = "Connect";
-      b.className = d.likely ? "primary" : "";
+      const li = document.createElement("li"); if (d.likely) li.className = "likely";
+      const info = document.createElement("div");
+      const name = document.createElement("div"); name.className = "name"; name.textContent = d.name || "(no name)";
+      const addr = document.createElement("div"); addr.className = "addr";
+      addr.textContent = `${d.likely ? "Looks like your machine · " : ""}${d.address} · ${d.rssi} dBm`;
+      info.append(name, addr);
+      const b = document.createElement("button"); b.textContent = "Connect"; b.className = "btn" + (d.likely ? " primary" : "");
       b.onclick = () => api("connect", { address: d.address }).then(() => toast("Connected")).catch(() => {});
-      li.appendChild(b); ul.appendChild(li);
+      li.append(info, b); ul.appendChild(li);
     });
-  } catch (e) {} finally { $("scan").disabled = false; }
+  } catch (e) {} finally { $("scan").disabled = false; $("scan").textContent = "Scan again"; }
 };
 $("disconnect").onclick = () => api("disconnect").catch(() => {});
-$("refresh").onclick = () => { markClean(...EDITABLE); api("refresh").catch(() => {}); };
-$("control").onchange = (e) => api("control", { enabled: e.target.checked }).catch(() => {});
-$("stop").onclick = () => api("stop").then(() => toast("STOP sent")).catch(() => {});
-$("setTarget").onclick = () => api("target", { celsius: Number($("tgt").value) }).then(() => { markClean("tgt"); toast("Target set"); }).catch(() => {});
-function setSetting(id, key) {
-  api("settings", { [key]: Number($(id).value) })
-    .then(() => { markClean(id); toast("Saved"); })
-    .catch(() => {});
-}
-$("setFlow").onclick = () => setSetting("flow", "flow");
-$("setPresoak").onclick = () => setSetting("presoak", "presoak_s");
-$("setStandstill").onclick = () => setSetting("standstill", "standstill_s");
-$("setExt").onclick = () => setSetting("ext", "extraction_raw");
-$("ext").oninput = updateExtHint;
-$("clear").onclick = () => ($("log").innerHTML = "");
+$("refresh").onclick = () => { draft = {}; api("refresh").then(() => toast("Re-read from the machine")).catch(() => {}); };
+$("control").onclick = () => api("control", { enabled: $("control").getAttribute("aria-checked") !== "true" }).catch(() => {});
+const sendStop = () => api("stop").then(() => toast("STOP sent")).catch(() => {});
+$("stop").onclick = sendStop;
+$("heroStop").onclick = sendStop;
+$("clear").onclick = () => ($("log").textContent = "");
 document.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = () => {
-  if (!confirm(`Start "${b.textContent}"? Water and cup in place, machine supervised.`)) return;
+  const label = b.firstChild.textContent.trim();
+  if (!confirm(`Start "${label}"? Water and cup in place, machine supervised.`)) return;
   api("start", { mode: b.dataset.mode }).catch(() => {});
 }));
 
@@ -493,9 +682,12 @@ function connectWs() {
     if (e.type === "state") render(e.state);
     else if (e.type === "frame") logFrame(e);
     else if (e.type === "frames") e.frames.forEach(logFrame);
-    else if (e.type === "log") { log(e.level === "warn" ? "warn" : "", e.msg); if (e.level === "warn") toast(e.msg); }
+    else if (e.type === "log") { log(e.level === "warn" ? "warnl" : "", e.msg); if (e.level === "warn") toast(e.msg); }
   };
-  ws.onclose = () => { $("conn").textContent = "app offline"; $("conn").className = "pill warn"; setTimeout(connectWs, 2000); };
+  ws.onclose = () => {
+    const c = $("conn"); c.className = "chip busy"; c.lastChild.textContent = "App offline";
+    setTimeout(connectWs, 2000);
+  };
 }
 connectWs();
 </script>
