@@ -28,7 +28,7 @@ pip install git+https://github.com/Just-a-lurker/CeraOpenApp.git
 python -m ceraopen
 ```
 
-The app pins a tagged CeraLib release (`v0.3.0`) and aiohttp 3.x, so new
+The app pins a tagged CeraLib release (`v0.4.0`) and aiohttp 3.x, so new
 library or aiohttp major versions only arrive through a deliberate update.
 
 For development against a local CeraLib checkout:
@@ -47,6 +47,9 @@ Close the vendor app first: the machine accepts one connection at a time.
 - **STOP** is always available while connected, even with control off.
 - If every browser tab closes while the machine runs, or you stop the server
   with Ctrl+C, the app sends STOP.
+- **Schedule** stores a start time on the machine, which then starts **by
+  itself** at that time even with the app closed. Setting one needs Allow
+  control and a confirmation; cancelling is always allowed.
 - Setters and brew commands are not yet verified on hardware (see CeraLib's
   README). Stay with the machine.
 

@@ -75,6 +75,8 @@
   #chart .nodata { fill: var(--muted); fill-opacity: .5; }
   #chart .hit { fill: transparent; outline: none; }
   #chart .hit.drill { cursor: pointer; }
+  .rnow { font-weight: 600; margin: 10px 0; }
+  .rnow.on { color: var(--warn); }
   #chart .hit.on, #chart .hit:focus-visible { fill: var(--line); fill-opacity: .35; }
   #tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 8px;
          padding: 6px 10px; font-size: 12px; line-height: 1.35; white-space: nowrap; display: none; z-index: 1; }
@@ -143,6 +145,21 @@
     <div class="row"><button data-w data-mode="HEAT">Heat only</button></div>
     <div class="row"><button data-w data-mode="EXTRACT">Extract only</button></div>
     <div class="row"><button data-w data-mode="HEAT_AND_EXTRACT">Heat &amp; extract</button></div>
+  </section>
+
+  <section>
+    <h2>Schedule</h2>
+    <p class="hint"><b>The machine starts by itself</b> at this time, on its own clock, even if this app and the phone are off. It runs once, then switches off the schedule. Only set it when water and a cup will be in place.</p>
+    <p id="rNow" class="rnow">–</p>
+    <div class="row"><label for="rMode">Mode</label>
+      <select id="rMode" style="width:auto"><option value="HEAT_AND_EXTRACT">Heat &amp; extract</option><option value="HEAT">Heating</option><option value="EXTRACT">Extract only</option></select></div>
+    <div class="row"><label for="rTime">Time</label><input id="rTime" type="time" value="07:00" required></div>
+    <div class="row"><label for="rAlarm">Reminder</label>
+      <select id="rAlarm" style="width:auto"><option value="0">Silent</option><option value="1">Alarm</option></select></div>
+    <div class="row"><label for="rBeep">Sound</label>
+      <select id="rBeep" style="width:auto"><option value="DING_DONG">Ding dong</option><option value="DI_DI">Di di</option><option value="BU_GU">Bu gu</option><option value="BI_BI">Bi bi</option></select></div>
+    <p class="hint">The reminder sound is played by the phone app (HappyGo), not the machine; it is stored here so HappyGo keeps your choice.</p>
+    <div class="row"><button data-w id="rSet">Schedule</button><button id="rCancel" disabled>Cancel schedule</button></div>
   </section>
 
   <section class="wide">
@@ -243,10 +260,49 @@ function render(s) {
   $("cMonth").textContent = cups ? cups.month : "–";
   $("cYear").textContent = cups ? cups.year : "–";
   if (cups) $("cHint").textContent = `As of ${cups.as_of}. Week runs Sunday to Saturday, like the vendor app. The machine stores ${cups.days_stored} days; "Re-read settings" reloads.`;
+  renderReservation(s);
   statsAsOf = cups ? cups.as_of : null;
   const key = cups ? `${cups.as_of}:${cups.year}:${cups.today}` : "";
   if (key !== statsKey) { statsKey = key; loadPeriod(); }
 }
+
+// ---- schedule ---------------------------------------------------------------
+const R_MODE = { HEAT_AND_EXTRACT: "Heat & extract", HEAT: "Heating", EXTRACT: "Extract only" };
+const R_BEEP = { DING_DONG: "ding dong", DI_DI: "di di", BU_GU: "bu gu", BI_BI: "bi bi" };
+let rFormLoaded = false;
+function renderReservation(s) {
+  const r = s.reservation, el = $("rNow");
+  $("rCancel").disabled = !(s.connected && r && r.enabled);
+  if (!s.connected || !r) { el.textContent = "–"; el.className = "rnow"; rFormLoaded = false; return; }
+  if (r.enabled) {
+    const when = r.next_run ? new Date(r.next_run) : null;
+    const day = when && when.toDateString() === new Date().toDateString() ? "today" : "tomorrow";
+    el.textContent = `Scheduled: ${R_MODE[r.mode] || r.mode} at ${r.time} (${day})` +
+      (r.alarm ? `, reminder ${R_BEEP[r.beep] || r.beep}` : ", silent");
+    el.className = "rnow on";
+  } else {
+    el.textContent = `Nothing scheduled (last: ${R_MODE[r.mode] || r.mode} at ${r.time})`;
+    el.className = "rnow";
+  }
+  if (!rFormLoaded) {  // start the form from what the machine has, once per connection
+    rFormLoaded = true;
+    if (R_MODE[r.mode]) $("rMode").value = r.mode;
+    $("rTime").value = r.time; $("rAlarm").value = r.alarm ? "1" : "0";
+    if (R_BEEP[r.beep]) $("rBeep").value = r.beep;
+  }
+  updateBeepEnabled();
+}
+function updateBeepEnabled() { $("rBeep").disabled = $("rAlarm").value === "0"; }
+$("rAlarm").addEventListener("change", updateBeepEnabled);
+$("rSet").onclick = () => {
+  const t = $("rTime").value;
+  if (!/^\d{2}:\d{2}$/.test(t)) { toast("Pick a time"); return; }
+  const mode = $("rMode").value;
+  if (!confirm(`Schedule "${R_MODE[mode]}" at ${t}? The machine will start BY ITSELF at that time, even with this app closed. Water and cup must be in place.`)) return;
+  api("reservation", { mode, time: t, alarm: $("rAlarm").value === "1", beep: $("rBeep").value })
+    .then(() => toast(`Scheduled at ${t}`)).catch(() => {});
+};
+$("rCancel").onclick = () => api("reservation/cancel").then(() => toast("Schedule cancelled")).catch(() => {});
 
 // ---- cups chart -------------------------------------------------------------
 let statsKey = "", statsAsOf = null, period = "week", offset = 0, lastData = null;
