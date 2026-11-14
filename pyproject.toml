@@ -1,7 +1,7 @@
 [project]
 name = "ceraopenapp"
 version = "0.4.0"
-description = "Test app for CeraLib-supported portable espresso machines"
+description = "Local browser app for CeraLib-supported portable espresso machines"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.9"
