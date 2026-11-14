@@ -28,6 +28,9 @@ pip install git+https://github.com/Just-a-lurker/CeraOpenApp.git
 python -m ceraopen
 ```
 
+The app pins a tagged CeraLib release (`v0.1.0`) and aiohttp 3.x, so new
+library or aiohttp major versions only arrive through a deliberate update.
+
 For development against a local CeraLib checkout:
 
 ```
