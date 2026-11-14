@@ -7,6 +7,7 @@ No web code here, so another frontend (CLI, desktop, Home Assistant) can reuse i
 from __future__ import annotations
 
 import asyncio
+import datetime as _dt
 import time
 from collections import deque
 from typing import Any, Callable, Deque, Dict, List, Optional
@@ -32,6 +33,8 @@ class MachineService:
         self.connecting = False
         # Writes are refused until a user explicitly turns control on.
         self.control_enabled = False
+        self.stats = None  # cera.messages.Stats, read-only cup history
+        self.stats_date: Optional[_dt.date] = None
 
     # -- events ----------------------------------------------------------
     def subscribe(self, fn: Listener) -> Callable[[], None]:
@@ -80,6 +83,7 @@ class MachineService:
             },
             "target_c": c.target_c if (c and connected) else None,
             "flow_range": {"min": FLOW_MIN, "max": FLOW_MAX, "default": FLOW_DEFAULT},
+            "stats": self._stats_view() if connected else None,
             "settings": None if settings is None else {
                 "flow": settings.flow,
                 "flow_name": {FLOW_MIN: "min", FLOW_DEFAULT: "normal", FLOW_MAX: "max"}.get(settings.flow, str(settings.flow)),
@@ -118,6 +122,7 @@ class MachineService:
             try:
                 await client.connect()
                 self._client = client
+                await self._read_stats(client)
             finally:
                 self.connecting = False
                 self._changed()
@@ -148,8 +153,33 @@ class MachineService:
 
     async def refresh(self) -> None:
         async with self._lock:
-            await self._need(write=False).get_settings()
+            client = self._need(write=False)
+            await client.get_settings()
+            await self._read_stats(client)
         self._changed()
+
+    async def _read_stats(self, client) -> None:
+        """Read the cup history; a failure here never breaks the connection."""
+        try:
+            self.stats = await client.get_stats()
+            self.stats_date = _dt.date.today()
+        except Exception as exc:  # noqa: BLE001
+            self._emit("log", level="warn", msg=f"could not read cup stats: {exc}")
+
+    def _stats_view(self):
+        s, day = self.stats, self.stats_date
+        if s is None or day is None:
+            return None
+        return {
+            "today": s.today,
+            "week": s.week(day),  # Sunday to Saturday, like the vendor app
+            "month": s.month(day),
+            "year": s.year(day),
+            "days_stored": len(s.daily),
+            "last_7": [{"date": (day - _dt.timedelta(days=i)).isoformat(), "cups": s.daily[i]}
+                       for i in range(min(7, len(s.daily)))],
+            "as_of": day.isoformat(),
+        }
 
     async def set_target_c(self, celsius: float) -> None:
         async with self._lock:

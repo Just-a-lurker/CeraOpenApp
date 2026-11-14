@@ -104,6 +104,19 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["flow_range"], {"min": 1, "max": 15, "default": 8})
         self.assertEqual(state["settings"]["flow_name"], "normal")
 
+    async def test_stats_in_state(self):
+        import datetime as dt
+        from cera.messages import Stats
+        self.svc._client = FakeClient()
+        self.svc.stats = Stats(b"9", (2, 0, 0, 0, 0, 0, 1, 1) + (0,) * 6 + (5,))
+        self.svc.stats_date = dt.date(2026, 11, 14)  # a Saturday
+        st = await (await self.client.get("/api/state")).json()
+        self.assertEqual(st["stats"]["today"], 2)
+        self.assertEqual(st["stats"]["week"], 3)    # Sun 8 Nov to Sat 14 Nov
+        self.assertEqual(st["stats"]["month"], 4)   # 1-14 Nov
+        self.assertEqual(st["stats"]["year"], 9)
+        self.assertEqual(st["stats"]["days_stored"], 15)
+
     async def test_disconnect_turns_control_off(self):
         self.svc._client = FakeClient()
         await self.post("control", {"enabled": True})
