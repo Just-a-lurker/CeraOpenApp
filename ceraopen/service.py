@@ -7,6 +7,7 @@ No web code here, so another frontend (CLI, desktop, Home Assistant) can reuse i
 from __future__ import annotations
 
 import asyncio
+import datetime as _dt
 import time
 from collections import deque
 from typing import Any, Callable, Deque, Dict, List, Optional
@@ -32,6 +33,8 @@ class MachineService:
         self.connecting = False
         # Writes are refused until a user explicitly turns control on.
         self.control_enabled = False
+        self.stats = None  # cera.messages.Stats, read-only cup history
+        self.stats_date: Optional[_dt.date] = None
 
     # -- events ----------------------------------------------------------
     def subscribe(self, fn: Listener) -> Callable[[], None]:
@@ -80,6 +83,7 @@ class MachineService:
             },
             "target_c": c.target_c if (c and connected) else None,
             "flow_range": {"min": FLOW_MIN, "max": FLOW_MAX, "default": FLOW_DEFAULT},
+            "stats": self._stats_view() if connected else None,
             "settings": None if settings is None else {
                 "flow": settings.flow,
                 "flow_name": {FLOW_MIN: "min", FLOW_DEFAULT: "normal", FLOW_MAX: "max"}.get(settings.flow, str(settings.flow)),
@@ -118,6 +122,7 @@ class MachineService:
             try:
                 await client.connect()
                 self._client = client
+                await self._read_stats(client)
             finally:
                 self.connecting = False
                 self._changed()
@@ -148,8 +153,82 @@ class MachineService:
 
     async def refresh(self) -> None:
         async with self._lock:
-            await self._need(write=False).get_settings()
+            client = self._need(write=False)
+            await client.get_settings()
+            await self._read_stats(client)
         self._changed()
+
+    async def _read_stats(self, client) -> None:
+        """Read the cup history; a failure here never breaks the connection."""
+        try:
+            self.stats = await client.get_stats()
+            self.stats_date = _dt.date.today()
+        except Exception as exc:  # noqa: BLE001
+            self._emit("log", level="warn", msg=f"could not read cup stats: {exc}")
+
+    def stats_period(self, period: str, offset: int = 0) -> Dict[str, Any]:
+        """Chart data for one week, month or year of the cup history.
+
+        ``offset`` 0 is the current period, -1 the one before, and so on.
+        Each bar has ``cups`` (None = no data) and ``complete`` (False when
+        part of it is older than what the machine stores).
+        """
+        s, day = self.stats, self.stats_date
+        if s is None or day is None:
+            raise CeraError("no cup stats yet: connect to the machine first")
+        offset = min(int(offset), 0)
+        series = {"week": s.week_series, "month": s.month_series, "year": s.year_series}
+        if period not in series:
+            raise ValueError("period must be week, month or year")
+
+        def build(off):
+            return series[period](day, off)
+
+        buckets = build(offset)
+        first, last = buckets[0].start, buckets[-1].start
+        if period == "week":
+            title = f"{first:%d %b} – {last:%d %b %Y}"
+            labels = [f"{b.start:%a}" for b in buckets]
+            names = [f"{b.start:%A %d %B %Y}" for b in buckets]
+        elif period == "month":
+            title = f"{first:%B %Y}"
+            labels = [str(b.start.day) for b in buckets]
+            names = [f"{b.start:%A %d %B %Y}" for b in buckets]
+        else:
+            title = str(first.year)
+            labels = [f"{b.start:%b}" for b in buckets]
+            names = [f"{b.start:%B %Y}" for b in buckets]
+        known = [b.cups for b in buckets if b.cups is not None]
+        return {
+            "period": period,
+            "offset": offset,
+            "title": title,
+            "total": sum(known),
+            "partial": any(not b.complete for b in buckets),
+            "can_prev": any(b.cups is not None for b in build(offset - 1)),
+            "can_next": offset < 0,
+            "oldest": s.oldest(day).isoformat(),
+            "bars": [
+                {"label": lab, "name": name, "start": b.start.isoformat(),
+                 "cups": b.cups, "complete": b.complete, "future": b.start > day}
+                for b, lab, name in zip(buckets, labels, names)
+            ],
+        }
+
+    def _stats_view(self):
+        s, day = self.stats, self.stats_date
+        if s is None or day is None:
+            return None
+        return {
+            "today": s.today,
+            "week": s.week(day),  # Sunday to Saturday, like the vendor app
+            "month": s.month(day),
+            "year": s.year(day),
+            "days_stored": len(s.daily),
+            "last_7": [{"date": (day - _dt.timedelta(days=i)).isoformat(), "cups": s.daily[i]}
+                       for i in range(min(7, len(s.daily)))],
+            "as_of": day.isoformat(),
+        }
 
     async def set_target_c(self, celsius: float) -> None:
         async with self._lock:
