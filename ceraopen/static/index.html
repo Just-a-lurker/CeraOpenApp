@@ -52,6 +52,11 @@
   .switch { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
             border: 1px dashed var(--warn); }
   .switch input { width: auto; }
+  .slider { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; flex: 1; min-width: 200px; }
+  .slider input[type=range] { width: 100%; padding: 0; accent-color: var(--accent); }
+  .slider .val { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 64px; text-align: right; }
+  .slider .ends { grid-column: 1; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  input.dirty, select.dirty { border-color: var(--warn); }
   #log { font-family: var(--mono); font-size: 12px; height: 260px; overflow: auto; background: var(--bg);
          border-radius: 8px; padding: 8px; white-space: pre; }
   .tx { color: var(--accent); } .rx { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--bad); }
@@ -93,7 +98,14 @@
     <label class="switch"><input type="checkbox" id="control" disabled>
       <span><b>Allow control</b><br><span class="hint">Writes are refused until this is on. Turns off on disconnect.</span></span></label>
     <div class="row"><label for="tgt">Target °C</label><input id="tgt" type="number" min="60" max="95" step="1" value="95"><button data-w id="setTarget">Set</button></div>
-    <div class="row"><label for="flow">Flow</label><select id="flow"><option value="8">normal</option><option value="15">high</option></select><button data-w id="setFlow">Set</button></div>
+    <div class="row"><label for="flow">Flow</label>
+      <div class="slider">
+        <input id="flow" type="range" min="1" max="15" step="1" value="8" list="flowTicks" aria-describedby="flowVal">
+        <span class="val" id="flowVal">8</span>
+        <div class="ends"><span>min 1</span><span>normal 8</span><span>max 15</span></div>
+      </div>
+      <datalist id="flowTicks"><option value="1"></option><option value="8"></option><option value="15"></option></datalist>
+      <button data-w id="setFlow">Set</button></div>
     <div class="row"><label for="presoak">Presoak s</label><input id="presoak" type="number" min="0" max="30" value="0"><button data-w id="setPresoak">Set</button></div>
     <div class="row"><label for="standstill">Standstill s</label><input id="standstill" type="number" min="0" max="30" value="0"><button data-w id="setStandstill">Set</button></div>
     <div class="row"><label for="ext">Extraction raw</label><input id="ext" type="number" min="0" max="255" value="120"><button data-w id="setExt">Set</button><span class="hint" id="extS"></span></div>
@@ -166,12 +178,28 @@ function render(s) {
   $("battery").textContent = st ? st.battery_raw : "–";
   $("target").textContent = s.target_c != null ? `${Math.round(s.target_c)} °C` : "–";
   const se = s.settings;
-  if (se && !document.activeElement.closest?.("section")?.querySelector("#flow")) {
-    $("flow").value = String(se.flow);
-    $("presoak").value = se.presoak_s; $("standstill").value = se.standstill_s; $("ext").value = se.extraction_raw;
+  if (se) {
+    // Live updates arrive every second; never overwrite a value being edited.
+    setIfClean("flow", se.flow);
+    setIfClean("presoak", se.presoak_s);
+    setIfClean("standstill", se.standstill_s);
+    setIfClean("ext", se.extraction_raw);
   }
+  updateFlowLabel();
   updateExtHint();
 }
+const EDITABLE = ["tgt", "flow", "presoak", "standstill", "ext"];
+function setIfClean(id, value) {
+  const el = $(id);
+  if (!el.classList.contains("dirty")) el.value = String(value);
+}
+function markClean(...ids) { ids.forEach((id) => $(id).classList.remove("dirty")); }
+EDITABLE.forEach((id) => $(id).addEventListener("input", () => $(id).classList.add("dirty")));
+function updateFlowLabel() {
+  const v = Number($("flow").value);
+  $("flowVal").textContent = v === 1 ? "1 · min" : v === 8 ? "8 · normal" : v === 15 ? "15 · max" : String(v);
+}
+$("flow").addEventListener("input", updateFlowLabel);
 function updateExtHint() {
   const raw = Number($("ext").value);
   $("extS").textContent = Number.isFinite(raw) ? `≈ ${raw / 2 + 60} s (inferred)` : "";
@@ -196,14 +224,19 @@ $("scan").onclick = async () => {
   } catch (e) {} finally { $("scan").disabled = false; }
 };
 $("disconnect").onclick = () => api("disconnect").catch(() => {});
-$("refresh").onclick = () => api("refresh").catch(() => {});
+$("refresh").onclick = () => { markClean(...EDITABLE); api("refresh").catch(() => {}); };
 $("control").onchange = (e) => api("control", { enabled: e.target.checked }).catch(() => {});
 $("stop").onclick = () => api("stop").then(() => toast("STOP sent")).catch(() => {});
-$("setTarget").onclick = () => api("target", { celsius: Number($("tgt").value) }).then(() => toast("Target set")).catch(() => {});
-$("setFlow").onclick = () => api("settings", { flow: Number($("flow").value) }).catch(() => {});
-$("setPresoak").onclick = () => api("settings", { presoak_s: Number($("presoak").value) }).catch(() => {});
-$("setStandstill").onclick = () => api("settings", { standstill_s: Number($("standstill").value) }).catch(() => {});
-$("setExt").onclick = () => api("settings", { extraction_raw: Number($("ext").value) }).catch(() => {});
+$("setTarget").onclick = () => api("target", { celsius: Number($("tgt").value) }).then(() => { markClean("tgt"); toast("Target set"); }).catch(() => {});
+function setSetting(id, key) {
+  api("settings", { [key]: Number($(id).value) })
+    .then(() => { markClean(id); toast("Saved"); })
+    .catch(() => {});
+}
+$("setFlow").onclick = () => setSetting("flow", "flow");
+$("setPresoak").onclick = () => setSetting("presoak", "presoak_s");
+$("setStandstill").onclick = () => setSetting("standstill", "standstill_s");
+$("setExt").onclick = () => setSetting("ext", "extraction_raw");
 $("ext").oninput = updateExtHint;
 $("clear").onclick = () => ($("log").innerHTML = "");
 document.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = () => {

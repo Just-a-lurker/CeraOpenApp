@@ -13,7 +13,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional
 
 from cera import BrewMode, discover
 from cera.client import CeraClient, CeraError, CommandRejected
-from cera.messages import FLOW_HIGH, FLOW_NORMAL, State
+from cera.messages import FLOW_DEFAULT, FLOW_MAX, FLOW_MIN, State
 
 Listener = Callable[[Dict[str, Any]], None]
 
@@ -79,9 +79,10 @@ class MachineService:
                 "raw": status.raw.hex(" "),
             },
             "target_c": c.target_c if (c and connected) else None,
+            "flow_range": {"min": FLOW_MIN, "max": FLOW_MAX, "default": FLOW_DEFAULT},
             "settings": None if settings is None else {
                 "flow": settings.flow,
-                "flow_name": {FLOW_NORMAL: "normal", FLOW_HIGH: "high"}.get(settings.flow, f"0x{settings.flow:02x}"),
+                "flow_name": {FLOW_MIN: "min", FLOW_DEFAULT: "normal", FLOW_MAX: "max"}.get(settings.flow, str(settings.flow)),
                 "presoak_s": settings.presoak_s,
                 "standstill_s": settings.standstill_s,
                 "extraction_raw": settings.extraction_raw,

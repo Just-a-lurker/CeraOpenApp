@@ -1,12 +1,12 @@
 [project]
 name = "ceraopenapp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Test app for CeraLib-supported portable espresso machines"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
 requires-python = ">=3.9"
 dependencies = [
-    "ceralib @ git+https://github.com/Just-a-lurker/CeraLib.git@v0.1.0",
+    "ceralib @ git+https://github.com/Just-a-lurker/CeraLib.git@v0.2.0",
     "aiohttp>=3.8,<4",
 ]
 

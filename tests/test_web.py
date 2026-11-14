@@ -96,6 +96,14 @@ class WebTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.post("settings", {"flow": 999}))[0], 400)
         self.assertEqual((await self.post("settings", {}))[0], 400)
 
+    async def test_flow_slider_state(self):
+        fake = FakeClient()
+        self.svc._client = fake
+        r = await self.client.get("/api/state")
+        state = await r.json()
+        self.assertEqual(state["flow_range"], {"min": 1, "max": 15, "default": 8})
+        self.assertEqual(state["settings"]["flow_name"], "normal")
+
     async def test_disconnect_turns_control_off(self):
         self.svc._client = FakeClient()
         await self.post("control", {"enabled": True})
