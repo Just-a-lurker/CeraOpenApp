@@ -49,6 +49,80 @@ from there.
 The app pins a tagged CeraLib release (`v0.4.1`) and aiohttp 3.x, so new
 library or aiohttp major versions only arrive through a deliberate update.
 
+## Android app
+
+`android/` is a native Kotlin + Jetpack Compose app that speaks the same
+protocol, so the machine can be controlled from a phone without a PC.
+
+The screen is a readout rather than a form. The top panel is the machine's
+face: water temperature on a dial with the target marked on its rim, the state
+and battery above it, and one primary button that starts the chosen brew mode
+and turns into **Stop** while the machine runs. Below it, cups (today, week,
+month, year) with a week, month or year chart you can step back through — tap
+a bar for that day's or month's exact count — then the recipe and the schedule
+as summaries. Editing either one opens a bottom sheet; the Bluetooth frame log
+sits in the overflow menu.
+
+The palette is the machine's own: warm porcelain, espresso ink, and crema only
+on data and on the single primary action. Both schemes are defined role by
+role — a role left unset makes Material fall back to its purple defaults — and
+the app follows the system light/dark setting.
+
+It does not use CeraLib at runtime; the Bluetooth protocol is ported to
+Kotlin under `android/app/src/main/java/com/ceraopen/android/`:
+
+| File | Role |
+|---|---|
+| `cera/Codec.kt` | Frame encode/decode, checksum, fragment reassembly |
+| `cera/Messages.kt` | Commands, status/settings/stats/reservation parsing |
+| `cera/CeraClient.kt` | Handshake, retries, request/reply matching |
+| `cera/BleLink.kt`, `cera/AndroidBleLink.kt` | GATT link (FFF0/FFF1/FFF2) |
+| `cera/Scanner.kt` | BLE scan |
+| `MachineService.kt` | `MachineService`: owns the client, control lock, state |
+| `CeraViewModel.kt` | Bridges the service to Compose |
+| `ui/MainScreen.kt` | App shell, header with the control-lock pill, connect screen |
+| `ui/DashboardScreen.kt` | Gauge panel, cups panel, recipe and schedule summaries |
+| `ui/Sheets.kt` | Recipe, schedule and frame-log bottom sheets |
+| `ui/Gauge.kt`, `ui/CupsChart.kt` | The two drawings: the dial and the bars |
+| `ui/Components.kt` | Panel, segmented control, slider, stepper, battery |
+| `ui/theme/Theme.kt` | Palette, type scale, shapes; every colour role is set |
+
+Build with the Gradle wrapper (the Android SDK is needed;
+`local.properties` points at it):
+
+```
+cd android
+gradlew.bat assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
+gradlew.bat testDebugUnitTest      # protocol tests, no phone needed
+gradlew.bat lintDebug              # Android lint
+```
+
+Install and run:
+
+```
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am start -n com.ceraopen.android/.MainActivity
+```
+
+Debug builds can fill the dashboard with sample data, which is how the layout
+is reviewed on an emulator (it has no Bluetooth):
+
+```
+adb shell am start -n com.ceraopen.android/.MainActivity --ez demo true
+adb shell am start -n com.ceraopen.android/.MainActivity --ez demo true --ez running true
+adb shell am start -n com.ceraopen.android/.MainActivity --ez demo true --ez locked true
+```
+
+Requirements: Android 8.0 (API 26) or newer and a phone with Bluetooth LE.
+On Android 12+ the app asks for *Nearby devices*; older versions ask for
+location, which Android requires in order to scan for Bluetooth devices.
+Controls start locked, exactly like the web UI, and closing the app while a
+shot runs sends STOP.
+
+The Kotlin tests mirror CeraLib's own vectors (`tests/vectors.py` and
+`tests/test_codec.py`): every captured frame must round-trip byte for byte,
+and the client is exercised against a scripted fake link.
+
 ## Safety and warranty
 
 - **Controls locked** is the default and comes back on every disconnect.
