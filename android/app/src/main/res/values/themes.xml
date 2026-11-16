@@ -1,0 +1,7 @@
+<resources>
+    <!-- enableEdgeToEdge() sets the cutout mode itself on API 28+; below that
+         the attribute does not exist, so it stays out of the theme. -->
+    <style name="Theme.CeraOpen" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/backdrop_light</item>
+    </style>
+</resources>

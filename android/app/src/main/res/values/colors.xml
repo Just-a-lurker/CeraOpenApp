@@ -1,0 +1,6 @@
+<resources>
+    <!-- Same palette as the web UI (static/index.html). -->
+    <color name="backdrop_light">#FFF4F1ED</color>
+    <color name="backdrop_dark">#FF141210</color>
+    <color name="icon_background">#FF6F4428</color>
+</resources>

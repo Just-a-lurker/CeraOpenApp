@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Espresso cup: steam, cup with a handle, and a saucer. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- steam -->
+    <path
+        android:pathData="M46,28 L46,35 M54,26 L54,33 M62,28 L62,35"
+        android:strokeColor="#FFF8F6F3"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round" />
+    <!-- cup body -->
+    <path
+        android:fillColor="#FFF8F6F3"
+        android:pathData="M38,42 h30 l-2.6,20.5 c-0.4,3.2 -3.1,5.5 -6.3,5.5 h-12.2 c-3.2,0 -5.9,-2.3 -6.3,-5.5 z" />
+    <!-- handle -->
+    <path
+        android:pathData="M69,47 h2.5 a6.5,6.5 0 0 1 0,13 h-3"
+        android:strokeColor="#FFF8F6F3"
+        android:strokeWidth="4"
+        android:fillColor="#00000000" />
+    <!-- saucer -->
+    <path
+        android:fillColor="#FFF8F6F3"
+        android:pathData="M35,73 h38 a3,3 0 0 1 0,6 h-38 a3,3 0 0 1 0,-6 z" />
+</vector>
