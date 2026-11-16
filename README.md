@@ -17,7 +17,7 @@ CeraLib, and shows a control page in your browser at
   state (idle, heating, extracting), battery, and big start buttons for
   *Heat*, *Heat & extract* and *Extract*, which turn into one big **Stop**
   while the machine runs.
-- **Recipe**: target temperature, flow (1–15, like the vendor app's slider),
+- **Recipe**: target temperature (38–95 °C, like the vendor app), flow (1–15),
   presoak, standstill and extraction time, edited as drafts and saved with
   one **Save**.
 - **Schedule**: shows the start time stored on the machine and lets you set
@@ -46,7 +46,7 @@ If the connection drops later, the app does not reconnect by itself: it
 shows the connect screen again and locks the controls, and you connect again
 from there.
 
-The app pins a tagged CeraLib release (`v0.4.1`) and aiohttp 3.x, so new
+The app pins a tagged CeraLib release (`v0.5.0`) and aiohttp 3.x, so new
 library or aiohttp major versions only arrive through a deliberate update.
 
 ## Android app

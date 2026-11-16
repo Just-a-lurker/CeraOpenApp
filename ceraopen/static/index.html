@@ -282,7 +282,7 @@
       <div class="col">
         <section class="card recipe">
           <div class="card-head"><h2>Recipe</h2><button id="refresh" class="btn ghost" style="min-height:32px;padding:4px 10px">Re-read</button></div>
-          <div class="field"><label>Water temperature<small>60–95 °C</small></label>
+          <div class="field"><label>Water temperature<small>38–95 °C</small></label>
             <span class="stepper" data-field="target"><button data-dir="-1" aria-label="Lower temperature">−</button><output>–</output><button data-dir="1" aria-label="Raise temperature">+</button></span></div>
           <div class="field flowfield"><label for="flow">Flow<small>1 (min) to 15 (max)</small></label>
             <div class="flowctl" id="flowctl">
@@ -366,7 +366,7 @@ function logFrame(f) {
 
 // ---- recipe: edits are drafts until Save -----------------------------------
 const FIELDS = {
-  target:     { min: 60, max: 95,  step: 1,  fmt: (v) => `${v} °C` },
+  target:     { min: 38, max: 95,  step: 1,  fmt: (v) => `${v} °C` },
   presoak:    { min: 0,  max: 30,  step: 1,  fmt: (v) => `${v} s` },
   standstill: { min: 0,  max: 30,  step: 1,  fmt: (v) => `${v} s` },
   // Raw value on the machine; seconds = raw / 2 + 60 (inferred), the app steps 10 s.

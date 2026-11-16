@@ -21,8 +21,9 @@ import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 
-// Observed range only: the app offered 90-95 C in captures. Not a machine limit.
-const val MIN_TARGET_C = 60.0
+// The vendor app's slider reaches 38 C, and the CMD_LIMITS reply agrees: it starts
+// at 0x64 (100 F = 37.8 C) and tops out at 0xCC (204 F = 95.6 C).
+const val MIN_TARGET_C = 38.0
 const val MAX_TARGET_C = 95.0
 
 open class CeraException(message: String, cause: Throwable? = null) :
