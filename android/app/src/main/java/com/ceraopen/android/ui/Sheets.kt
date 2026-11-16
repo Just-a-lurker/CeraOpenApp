@@ -102,9 +102,9 @@ fun RecipeSheet(
             SliderField(
                 label = "Water temperature",
                 value = target,
-                range = 60..95,
+                range = 38..95,
                 display = "$target °C",
-                hint = "60–95 °C",
+                hint = "38–95 °C",
                 enabled = state.controlEnabled,
             ) { target = it }
             SliderField(

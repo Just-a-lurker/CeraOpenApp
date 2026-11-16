@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 private val SETTINGS = hexBytes("0800000a00000a781efa010f")
@@ -14,6 +15,15 @@ private val INFO = hexBytes("18" + "05302e302e33" + "05302e302e39" + "0950434d30
 
 private fun reply(cmd: Int, payload: ByteArray, flags: Int = 0): ByteArray =
     encode(cmd, payload, FROM_MACHINE, flags)
+
+private suspend fun assertTargetRejected(client: CeraClient, celsius: Double) {
+    try {
+        client.setTargetTempC(celsius)
+    } catch (_: IllegalArgumentException) {
+        return
+    }
+    fail("$celsius C should be rejected")
+}
 
 /**
  * Scripted fake machine. Each built link answers only when its index is not
@@ -155,17 +165,32 @@ class CeraClientTest {
     }
 
     @Test
+    fun lowestTargetIsTheMachinesOwnFloor() = runTest {
+        val machine = FakeMachine()
+        val written = mutableListOf<Int>()
+        val client = CeraClient(
+            newLink = { machine.build { } },
+            onFrame = { _, raw ->
+                val f = decode(raw)
+                if (f.direction == TO_MACHINE && f.cmd == CMD_TARGET_TEMP) {
+                    written.add(f.payload[0].unsigned())
+                }
+            },
+        )
+        shrink(client)
+        client.connect(attempts = 1)
+        assertTargetRejected(client, 37.0)
+        client.setTargetTempC(38.0) // CMD_LIMITS starts at 0x64, 100 F
+        assertEquals(listOf(0x64), written)
+    }
+
+    @Test
     fun outOfRangeTargetIsRejectedBeforeSending() = runTest {
         val machine = FakeMachine()
         val client = CeraClient(newLink = { machine.build { } })
         shrink(client)
         client.connect(attempts = 1)
-        var raised = false
-        try {
-            client.setTargetTempC(99.0)
-        } catch (_: IllegalArgumentException) {
-            raised = true
-        }
-        assertTrue(raised)
+        assertTargetRejected(client, 99.0)
+        assertTargetRejected(client, 37.9)
     }
 }
