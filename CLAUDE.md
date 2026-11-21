@@ -32,7 +32,7 @@ gradlew.bat lintDebug
 Debug builds can show sample data, so the UI can be reviewed on an emulator, which has no Bluetooth:
 `adb shell am start -n com.ceraopen.android/.MainActivity --ez demo true` (add `--ez running true` or `--ez locked true` for the other states).
 
-**CI runs only the Python tests** (3.9 and 3.12), so 3.9 syntax and stdlib are the limit there. Run the Kotlin tests and lint locally. CI also installs CeraLib from the **tag pinned in `pyproject.toml`**, not the sibling checkout, so tests can pass locally against `-e ../CeraLib` and fail in CI until that tag exists. `main` is protected: changes go through a PR.
+**CI runs only the Python tests** (3.9 and 3.12), so 3.9 syntax and stdlib are the limit there. The runner is pinned to `ubuntu-24.04` because `ubuntu-latest` (26.04) has no Python 3.9 build. Run the Kotlin tests and lint locally. CI also installs CeraLib from the **tag pinned in `pyproject.toml`**, not the sibling checkout, so tests can pass locally against `-e ../CeraLib` and fail in CI until that tag exists. `main` is protected: changes go through a PR.
 
 ## Architecture
 
