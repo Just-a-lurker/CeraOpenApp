@@ -294,6 +294,7 @@ fun ScheduleSheet(
         )
     }
     var showPicker by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf(false) }
     val enabled = state.reservationEnabled == true
 
     ModalBottomSheet(
@@ -412,15 +413,17 @@ fun ScheduleSheet(
             Spacer(Modifier.height(20.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (enabled) {
+                    // Like STOP, cancelling only removes risk, so it works
+                    // with the controls locked (the service allows it too).
                     OutlinedButton(
                         onClick = onCancel,
-                        enabled = state.controlEnabled,
+                        enabled = state.connected,
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.weight(1f).height(52.dp),
                     ) { Text("Cancel schedule") }
                 }
                 Button(
-                    onClick = { onSchedule(mode, time, alarm, beep) },
+                    onClick = { confirm = true },
                     enabled = state.controlEnabled,
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.weight(1f).height(52.dp),
@@ -433,6 +436,32 @@ fun ScheduleSheet(
                 Caption("The controls are locked; unlock in the header to schedule.")
             }
         }
+    }
+
+    if (confirm) {
+        // Same wording as the web UI: a reservation starts the machine by
+        // itself later, so it is confirmed like a manual start.
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Schedule ${RESERVATION_LABEL.getValue(mode).lowercase()} at $time?") },
+            text = {
+                Text(
+                    "The machine will start by itself at that time, even with this app closed. " +
+                        "Water and cup must be in place.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirm = false
+                        onSchedule(mode, time, alarm, beep)
+                    },
+                ) { Text("Schedule") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showPicker) {
@@ -460,6 +489,12 @@ fun ScheduleSheet(
         )
     }
 }
+
+private val RESERVATION_LABEL = mapOf(
+    ReservationMode.HEAT_AND_EXTRACT to "Heat & extract",
+    ReservationMode.HEAT to "Heating",
+    ReservationMode.EXTRACT to "Extract only",
+)
 
 private fun parseTime(t: String): Pair<Int, Int> {
     val parts = t.split(":")
